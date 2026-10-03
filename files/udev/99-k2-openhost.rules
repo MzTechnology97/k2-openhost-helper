@@ -1,0 +1,13 @@
+# K2-OpenHost: stable names for the Creality K2 hardware seen from the external host.
+# Installed by k2-openhost-helper.
+#
+# The K2's Allwinner T113 exposes three USB gadget serial functions
+# (Linux "Gadget Serial", 0525:a4a6). Interface 00/01/02 are bridged on the
+# T113 to the Main MCU (ttyS2), the Nozzle MCU (ttyS3) and RS-485 (ttyS5).
+# ModemManager is told to leave them alone.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0525", ATTRS{idProduct}=="a4a6", ENV{ID_USB_INTERFACE_NUM}=="00", SYMLINK+="k2-main", GROUP="dialout", MODE="0660", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0525", ATTRS{idProduct}=="a4a6", ENV{ID_USB_INTERFACE_NUM}=="01", SYMLINK+="k2-nozzle", GROUP="dialout", MODE="0660", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0525", ATTRS{idProduct}=="a4a6", ENV{ID_USB_INTERFACE_NUM}=="02", SYMLINK+="k2-rs485", GROUP="dialout", MODE="0660", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# Cartographer3D connected directly to the host (preferred topology).
+SUBSYSTEM=="tty", ENV{ID_SERIAL}=="*artographer*", SYMLINK+="k2-cartographer", GROUP="dialout", MODE="0660", ENV{ID_MM_DEVICE_IGNORE}="1"
