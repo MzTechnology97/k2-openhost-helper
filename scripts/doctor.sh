@@ -82,6 +82,30 @@ else
     warn "Mainsail release_info.json not found in $MAINSAIL_DIR"
 fi
 
+step "Cartographer"
+carto_loaders=()
+for loader in "$KLIPPER_DIR/klippy/extras/cartographer.py" "$KLIPPER_DIR/klippy/plugins/cartographer.py"; do
+    [[ -e "$loader" ]] && carto_loaders+=("${loader#"$KLIPPER_DIR"/}")
+done
+carto_location="$("$KLIPPY_ENV/bin/pip" show cartographer3d-plugin 2>/dev/null | sed -n 's/^Editable project location: //p')"
+if ! "$KLIPPY_ENV/bin/pip" show cartographer3d-plugin >/dev/null 2>&1; then
+    info "not installed (optional)"
+    (( ${#carto_loaders[@]} )) && bad "a Cartographer loader exists without the package: ${carto_loaders[*]}"
+else
+    if [[ "$carto_location" == "$CARTOGRAPHER_DIR" ]]; then
+        ok "package from the K2-OpenHost fork ($CARTOGRAPHER_DIR)"
+    else
+        bad "cartographer3d-plugin is not the K2-OpenHost fork (${carto_location:-a regular pip install}); run scripts/extras.sh cartographer"
+    fi
+    if [[ "${carto_loaders[*]}" == "klippy/plugins/cartographer.py" ]]; then
+        ok "loader klippy/plugins/cartographer.py"
+    elif (( ${#carto_loaders[@]} > 1 )); then
+        bad "two Cartographer loaders (${carto_loaders[*]}): Kalico refuses to start; run scripts/extras.sh cartographer"
+    else
+        bad "Cartographer loader: ${carto_loaders[*]:-missing}; run scripts/extras.sh cartographer"
+    fi
+fi
+
 step "Klipper and the CFS"
 info_json="$(curl -fsS --max-time 3 http://127.0.0.1:7125/printer/info 2>/dev/null || true)"
 if [[ -z "$info_json" ]]; then

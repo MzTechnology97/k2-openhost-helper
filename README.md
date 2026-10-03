@@ -58,7 +58,7 @@ Reboot once after the first install if you were added to the `dialout`/`tty` gro
 | **Mainsail K2-OpenHost** | The latest prebuilt [mainsail-k2openhost](https://github.com/MzTechnology97/mainsail-k2openhost) release (CFS panel, live filament path, filament library, print mapping) served by nginx on port 80. Without a release it builds from source when Node.js 20+ is present.                         |
 | **Full install** adds    | Moonraker timelapse (the K2 profile ships its macros) and Klippain Shake&Tune.                                                                                                                                                                                                                    |
 
-Optional components: **Cartographer3D** (K2-OpenHost fork, direct USB; PRTouch stays the validated probe), **Crowsnest** webcam, **host MCU** `[mcu rpi]`, **Spoolman** connection, **Mobileraker**, **OctoEverywhere**.
+Optional components: **Cartographer3D** from the dedicated [K2-OpenHost fork](https://github.com/MzTechnology97/cartographer3d-plugin-k2openhost) (direct USB; PRTouch stays the validated probe). Kalico does not ship Cartographer: the fork is installed in `~/klippy-env` with its loader in `klippy/plugins/`, and the helper refreshes that loader after every Kalico install or update. Also optional: **Crowsnest** webcam, **host MCU** `[mcu rpi]`, **Spoolman** connection, **Mobileraker**, **OctoEverywhere**.
 
 KAMP is not installed separately: Kalico already includes it, and the K2 profile's `kamp.cfg` configures it.
 
@@ -135,7 +135,7 @@ Dopo la prima installazione riavvia una volta se l'utente è stato aggiunto ai g
 - **Mainsail K2-OpenHost**: l'ultima release precompilata di [mainsail-k2openhost](https://github.com/MzTechnology97/mainsail-k2openhost) (pannello CFS, percorso filamento in tempo reale, libreria filamenti, mappatura in stampa) servita da nginx sulla porta 80.
 - **Full install** aggiunge Moonraker timelapse e Klippain Shake&Tune.
 
-Opzionali: **Cartographer3D** (fork K2-OpenHost, USB diretta; PRTouch resta la sonda validata), webcam **Crowsnest**, **MCU host** `[mcu rpi]`, collegamento a **Spoolman**, **Mobileraker**, **OctoEverywhere**.
+Opzionali: **Cartographer3D** dal [fork dedicato K2-OpenHost](https://github.com/MzTechnology97/cartographer3d-plugin-k2openhost) (USB diretta; PRTouch resta la sonda validata). Kalico non include Cartographer: il fork viene installato in `~/klippy-env` con il loader in `klippy/plugins/`, e l'helper lo ripristina dopo ogni installazione o aggiornamento di Kalico. Inoltre: webcam **Crowsnest**, **MCU host** `[mcu rpi]`, collegamento a **Spoolman**, **Mobileraker**, **OctoEverywhere**.
 
 KAMP non viene installato a parte: è già integrato in Kalico e lo configura `kamp.cfg` del profilo K2.
 
