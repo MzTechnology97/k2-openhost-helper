@@ -25,10 +25,10 @@ channel: beta
 repo: ${MAINSAIL_GH_REPO}
 path: ${MAINSAIL_DIR}
 EOF
-    add_section "$conf" "update_manager k2-openhost-helper" <<EOF
+    add_section "$conf" "update_manager k2-openhost-installer-helper" <<EOF
 type: git_repo
 path: ${HELPER_DIR}
-origin: https://github.com/MzTechnology97/k2-openhost-helper.git
+origin: https://github.com/MzTechnology97/k2-openhost-installer-helper.git
 primary_branch: main
 is_system_service: False
 EOF

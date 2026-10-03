@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# K2-OpenHost Helper Script
+# K2-OpenHost Installer Helper Script
 # Prepares an external Linux host (Raspberry Pi CM5/Pi 4/Pi 5 or any
 # Debian-based SBC/PC) to run Kalico + Moonraker + Mainsail for a Creality K2
 # Pro whose original T113 board acts as the USB gadget bridge.
-# https://github.com/MzTechnology97/k2-openhost-helper
+# https://github.com/MzTechnology97/k2-openhost-installer-helper
 set -euo pipefail
 
 HELPER_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -48,7 +48,7 @@ summary() {
 header() {
     clear 2>/dev/null || true
     printf '%s======================================================%s\n' "$C_WHITE" "$C_NC"
-    printf '%s   K2-OpenHost Helper %s%s\n' "$C_WHITE" "$VERSION" "$C_NC"
+    printf '%s   K2-OpenHost Installer Helper %s%s\n' "$C_WHITE" "$VERSION" "$C_NC"
     printf '%s   External Linux host for the Creality K2 Pro%s\n' "$C_DIM" "$C_NC"
     printf '%s======================================================%s\n' "$C_WHITE" "$C_NC"
     printf '%s   EXPERIMENTAL - pending hardware tests%s\n' "$C_YELLOW" "$C_NC"
@@ -134,7 +134,7 @@ menu() {
 
 usage() {
     cat <<EOF
-K2-OpenHost Helper ${VERSION}
+K2-OpenHost Installer Helper ${VERSION}
 
 Usage: ./helper.sh [--yes] [command]
 

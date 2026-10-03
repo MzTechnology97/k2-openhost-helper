@@ -15,7 +15,7 @@ GCODES_DIR="${PRINTER_DATA}/gcodes"
 COMMS_DIR="${PRINTER_DATA}/comms"
 SYSTEMD_ENV_DIR="${PRINTER_DATA}/systemd"
 BACKUP_DIR="${BACKUP_DIR:-${HOME}/k2-openhost-backups}"
-STATE_DIR="${HOME}/.k2-openhost-helper"
+STATE_DIR="${HOME}/.k2-openhost-installer-helper"
 
 KLIPPER_DIR="${KLIPPER_DIR:-${HOME}/klipper}"
 KLIPPY_ENV="${KLIPPY_ENV:-${HOME}/klippy-env}"
