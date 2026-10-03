@@ -1,0 +1,19 @@
+# Installed by k2-openhost-helper
+[Unit]
+Description=Klipper 3D Printer Firmware (Kalico K2-OpenHost)
+Documentation=https://github.com/MzTechnology97/K2-OpenHost
+After=network-online.target
+Wants=udev.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=simple
+User=@USER@
+RemainAfterExit=yes
+WorkingDirectory=@KLIPPER_DIR@
+EnvironmentFile=@PRINTER_DATA@/systemd/klipper.env
+ExecStart=@KLIPPY_ENV@/bin/python $KLIPPER_ARGS
+Restart=always
+RestartSec=10
