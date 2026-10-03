@@ -2,6 +2,11 @@
 
 **English** · [Italiano](README.it.md)
 
+> [!WARNING]
+> **Experienced users only — use at your own risk.** K2-OpenHost voids the manufacturer's warranty and can damage the printer beyond repair, brick its firmware or, in case of malfunction, cause a fire. The authors accept no liability for damage to property or persons.
+> In OpenHost mode the **nozzle and chamber cameras** cannot be managed by the T113 and must be rewired directly to the external Linux host, and the printer's **external USB port** cannot be used to print and stops working completely in gadget mode.
+> Read the [disclaimer and hardware limitations](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/DISCLAIMER.md) ([italiano](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/DISCLAIMER.md)) before using this repository.
+
 > **Experimental — pending hardware tests.** The installer reproduces the software stack validated on the K2-OpenHost reference machine (Creality K2 Pro + Raspberry Pi CM5), but a complete install on a fresh host has not been verified end to end yet. Use a spare SD card or eMMC image and keep your current setup.
 
 The K2-OpenHost Installer Helper turns an external Linux computer into a ready [K2-OpenHost](https://github.com/MzTechnology97/K2-OpenHost) host. It installs Kalico, Moonraker and the Mainsail K2-OpenHost fork, which run the Creality K2 Pro through its original mainboard; the K2's T113 board acts as a USB gadget bridge. The menu is styled after the [Creality Helper Script for the K2 series](https://github.com/tofuliang/Creality-Helper-Script-K2-Series).
@@ -60,6 +65,9 @@ No Linux experience is needed: every command below can be copied and pasted.
 | Network | Ethernet or Wi-Fi, with internet access during the install. |
 | The K2 | Its T113 board must run the three USB gadget serial bridges. See [USB gadget transport](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/USB_GADGET.md); an automatic T113 bootstrap will join this repository after the hardware tests. |
 | Another computer | Windows, macOS or Linux, to prepare the card and connect to the host. |
+| Cameras (optional) | The nozzle and chamber cameras cannot run through the T113 in OpenHost mode: rewire their original cable path to USB ports of the host, then use the Crowsnest option. |
+
+The printer's external USB port (for USB sticks) cannot be used to print and stops working completely once the T113 is in gadget mode: send files from Mainsail instead.
 
 ### 2. Prepare the card with Raspberry Pi Imager
 
