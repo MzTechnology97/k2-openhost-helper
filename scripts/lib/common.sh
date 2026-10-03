@@ -242,6 +242,15 @@ restart_service() {
     fi
 }
 
+# Cartographer is not part of kalico-k2pro: the dedicated fork's installer
+# puts its loader in klippy/plugins. Re-run it after Kalico changes so the
+# loader exists exactly once.
+refresh_cartographer_loader() {
+    [[ -x "$CARTOGRAPHER_DIR/scripts/install.sh" ]] || return 0
+    info "refreshing the Cartographer loader (cartographer3d-plugin-k2openhost)"
+    "$CARTOGRAPHER_DIR/scripts/install.sh" --klipper "$KLIPPER_DIR" --klippy-env "$KLIPPY_ENV" >/dev/null         && ok "Cartographer loader in klippy/plugins"         || warn "the Cartographer installer failed; run scripts/extras.sh cartographer"
+}
+
 klipper_is_printing() {
     local state
     state="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?print_stats=state' 2>/dev/null \

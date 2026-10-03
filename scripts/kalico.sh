@@ -27,6 +27,7 @@ install_kalico() {
     else
         warn "the C helper did not build yet; Klipper retries at start (check klippy.log)"
     fi
+    refresh_cartographer_loader
 
     step "Klipper service"
     mkdir -p "$CONFIG_DIR" "$LOGS_DIR" "$GCODES_DIR" "$COMMS_DIR" "$SYSTEMD_ENV_DIR"
@@ -50,6 +51,7 @@ update_kalico() {
     guard_not_printing
     clone_or_update "$KALICO_REPO" "$KLIPPER_DIR" "$KALICO_BRANCH"
     "$KLIPPY_ENV/bin/pip" install -q -r "$KLIPPER_DIR/scripts/klippy-requirements.txt"
+    refresh_cartographer_loader
     restart_service klipper
 }
 

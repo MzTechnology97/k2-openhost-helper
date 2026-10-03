@@ -69,6 +69,8 @@ hostmcu() {
 cartographer() {
     step "Cartographer3D plugin (K2-OpenHost fork)"
     [[ -x "$KLIPPY_ENV/bin/python" ]] || die "install Kalico first"
+    # Kalico does not ship Cartographer. This fork is the only supported build
+    # on the external host; it replaces any other cartographer3d-plugin install.
     clone_or_update "$CARTOGRAPHER_REPO" "$CARTOGRAPHER_DIR" main
     "$CARTOGRAPHER_DIR/scripts/install.sh" --klipper "$KLIPPER_DIR" --klippy-env "$KLIPPY_ENV"
     add_section "$(moonraker_conf)" "update_manager cartographer" <<EOF
