@@ -2,6 +2,11 @@
 
 [English](README.md) · **Italiano**
 
+> [!WARNING]
+> **Solo per utenti esperti — uso a proprio rischio.** K2-OpenHost invalida la garanzia del produttore e può danneggiare la stampante in modo irreparabile, mandare il firmware in brick o, in caso di malfunzionamento, causare un incendio. Gli autori non sono responsabili di danni a cose o a persone.
+> In modalità OpenHost la **fotocamera dell'ugello** e la **fotocamera della camera** non possono essere gestite dal T113 e vanno ricablate direttamente all'host Linux esterno, e la **porta USB esterna** della stampante non può essere usata per stampare e in modalità gadget smette completamente di funzionare.
+> Leggi l'[esclusione di responsabilità e i limiti hardware](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/DISCLAIMER.md) ([english](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/DISCLAIMER.md)) prima di usare questo repository.
+
 > **Sperimentale — in attesa dei test hardware.** L'installer riproduce lo stack software validato sulla macchina di riferimento K2-OpenHost (Creality K2 Pro + Raspberry Pi CM5), ma un'installazione completa su un host pulito non è ancora stata verificata dall'inizio alla fine. Usa una SD o un'eMMC di prova e conserva la configurazione attuale.
 
 K2-OpenHost Installer Helper trasforma un computer Linux esterno in un host [K2-OpenHost](https://github.com/MzTechnology97/K2-OpenHost) pronto all'uso. Installa Kalico, Moonraker e il fork Mainsail K2-OpenHost, che comandano la Creality K2 Pro attraverso la scheda madre originale; la scheda T113 della K2 fa da bridge USB gadget. Il menu è ispirato al [Creality Helper Script per la serie K2](https://github.com/tofuliang/Creality-Helper-Script-K2-Series).
@@ -60,6 +65,9 @@ Non serve esperienza con Linux: ogni comando qui sotto si può copiare e incolla
 | Rete | Ethernet o Wi-Fi, con accesso a Internet durante l'installazione. |
 | La K2 | La sua scheda T113 deve eseguire i tre bridge seriali USB gadget. Vedi [Trasporto USB gadget](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/USB_GADGET.md); un bootstrap automatico del T113 arriverà in questo repository dopo i test hardware. |
 | Un altro computer | Windows, macOS o Linux, per preparare la scheda e collegarti all'host. |
+| Fotocamere (opzionale) | La fotocamera dell'ugello e quella della camera non possono funzionare tramite il T113 in modalità OpenHost: ricabla il percorso originale verso porte USB dell'host, poi usa l'opzione Crowsnest. |
+
+La porta USB esterna della stampante (per le chiavette) non può essere usata per stampare e smette completamente di funzionare quando il T113 è in modalità gadget: invia i file da Mainsail.
 
 ### 2. Preparare la scheda con Raspberry Pi Imager
 
