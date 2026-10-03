@@ -2,6 +2,8 @@
 
 ## 0.1.0 — 2026-10-03 (experimental, pending hardware tests)
 
+- Renamed to K2-OpenHost Installer Helper (repository `k2-openhost-installer-helper`); step-by-step beginner guide in English and Italian with terminal screenshots.
+
 - Menu-driven and unattended (`--yes install full|core`) installer for an external K2-OpenHost host.
 - Host preparation: packages, serial groups, udev names for the T113 gadget channels and Cartographer, ModemManager/brltty handling.
 - Kalico K2-OpenHost (`kalico-k2pro` `k2-pro-openhost`) with `klipper.service` and the gadget start gate.

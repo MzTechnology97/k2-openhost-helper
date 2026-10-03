@@ -1,4 +1,4 @@
-# Installed by k2-openhost-helper: Mainsail K2-OpenHost on port 80.
+# Installed by k2-openhost-installer-helper: Mainsail K2-OpenHost on port 80.
 server {
     listen 80 default_server;
     # listen [::]:80 default_server;

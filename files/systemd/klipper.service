@@ -1,4 +1,4 @@
-# Installed by k2-openhost-helper
+# Installed by k2-openhost-installer-helper
 [Unit]
 Description=Klipper 3D Printer Firmware (Kalico K2-OpenHost)
 Documentation=https://github.com/MzTechnology97/K2-OpenHost

@@ -32,7 +32,7 @@ install_kalico() {
     step "Klipper service"
     mkdir -p "$CONFIG_DIR" "$LOGS_DIR" "$GCODES_DIR" "$COMMS_DIR" "$SYSTEMD_ENV_DIR"
     render_template "${FILES_DIR}/systemd/klipper.env" "$SYSTEMD_ENV_DIR/klipper.env"
-    if [[ -f /etc/systemd/system/klipper.service ]] && ! grep -q "k2-openhost-helper" /etc/systemd/system/klipper.service; then
+    if [[ -f /etc/systemd/system/klipper.service ]] && ! grep -Eq "k2-openhost-(installer-)?helper" /etc/systemd/system/klipper.service; then
         sudo cp /etc/systemd/system/klipper.service "/etc/systemd/system/klipper.service.bak-$(date +%Y%m%d-%H%M%S)"
         info "previous klipper.service backed up"
     fi

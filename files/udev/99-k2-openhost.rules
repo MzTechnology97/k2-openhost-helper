@@ -1,5 +1,5 @@
 # K2-OpenHost: stable names for the Creality K2 hardware seen from the external host.
-# Installed by k2-openhost-helper.
+# Installed by k2-openhost-installer-helper.
 #
 # The K2's Allwinner T113 exposes three USB gadget serial functions
 # (Linux "Gadget Serial", 0525:a4a6). Interface 00/01/02 are bridged on the
