@@ -63,7 +63,7 @@ No Linux experience is needed: every command below can be copied and pasted.
 | Power supply | The official supply for your board. Under-voltage causes random disconnections. |
 | USB cable | A **data** cable from a host USB port to the K2 service Micro-USB port. Charge-only cables do not work. |
 | Network | Ethernet or Wi-Fi, with internet access during the install. |
-| The K2 | A **Creality K2 Pro** on stock firmware 1.1.0.94, reachable on your network. Its T113 board must run the three USB gadget serial bridges: menu **23** installs them in the printer's spare system slot (slot B) with HelixScreen, leaving the current system (slot A) untouched. See the [T113 bootstrap guide](t113/slot-b/README.md). |
+| The K2 | A **Creality K2 Pro** on stock firmware, reachable on your network. The T113 bootstrap was prepared and tested on **1.1.0.94**; on newer firmware it and the T113 USB gadget (OTG) mode are not guaranteed. Its T113 board must run the three USB gadget serial bridges: menu **23** installs them in the printer's spare system slot (slot B) with HelixScreen, leaving the current system (slot A) untouched. See the [T113 bootstrap guide](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap/blob/main/README.md). |
 | Another computer | Windows, macOS or Linux, to prepare the card and connect to the host. |
 | Cameras (optional) | The nozzle and chamber cameras cannot run through the T113 in OpenHost mode: rewire their original cable path to USB ports of the host, then use the Crowsnest option. |
 
@@ -153,7 +153,7 @@ This applies the serial-port permissions given to your user. Reconnect with `ssh
 ### 9. Connect the K2
 
 1. Connect the USB data cable between a USB port of the host and the K2 service Micro-USB port.
-2. Run menu **23) Install the T113 bootstrap** (`./helper.sh t113 install`): it asks for the printer's IP, checks that it is a K2 Pro, builds the slot B system from Creality's own firmware and writes it, then offers the trial boot. Follow the [T113 bootstrap guide](t113/slot-b/README.md).
+2. Run menu **23) Install the T113 bootstrap** (`./helper.sh t113 install`): it asks for the printer's IP, checks that it is a K2 Pro, builds the slot B system from Creality's own firmware and writes it, then offers the trial boot. Follow the [T113 bootstrap guide](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap/blob/main/README.md).
 3. Klipper starts by itself: it waits up to 60 seconds for the three channels every time it starts.
 
 ### 10. Check the host
@@ -211,13 +211,14 @@ KAMP is not installed separately: Kalico already includes it, and the K2 profile
 | 19 | Serial names | Switches `printer.cfg` and the start gate to `/dev/k2-*` names, independent of USB enumeration order. |
 | 20 / 21 | Backup / Restore | Archives or restores the configuration, CFS filament library and CFS state. |
 | 22 | Restart | Restarts Klipper and Moonraker. Refused while printing. |
-| 23 | Install the T113 bootstrap | Asks the printer IP and confirms this host's IP, checks over SSH that the printer is a K2 Pro on stock 1.1.0.94, builds slot B from Creality's OTA, adds HelixScreen, writes slot B (slot A untouched) and offers the trial boot. |
+| 23 | Install the T113 bootstrap | Asks the printer IP and confirms this host's IP, clones the [T113 bootstrap](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap), checks over SSH that the printer is a K2 Pro, builds slot B from Creality's OTA (slot A's release or a newer one; tested on 1.1.0.94 only), adds HelixScreen, writes slot B (slot A untouched) and offers the trial boot. |
 | 24 | T113 status | Running slot, next boot, trial flag, first-boot setup, HelixScreen. |
 | 25 | Trial boot slot B | Boots slot B once; a power cycle returns to slot A. |
 | 26 | Keep slot B | Makes slot B the default (run on a working slot B). |
 | 27 | Boot slot A | Back to the printer's original system. |
 | 28 | Change the host address | Updates the host used by HelixScreen and `k2oh-mcu-fw` on the printer. |
-| 29 | MCU firmware status | Board versions on the printer. Updates are manual: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
+| 29 | MCU firmware status | Board versions on the printer and the firmware files slot B would flash. |
+| 30 | Update MCU firmware | Downloads the latest Creality release, stages it, shows what changes and flashes only if you confirm (stop Klipper on the host first). Step by step: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
 
 Entries already installed show `[installed]`. If a step fails, the menu shows the error and stays open.
 

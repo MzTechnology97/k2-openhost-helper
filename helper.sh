@@ -89,6 +89,7 @@ do_choice() {
         27) run t113.sh boot-a ;;
         28) run t113.sh host ;;
         29) run t113.sh mcu-fw status ;;
+        30) run t113.sh mcu-fw update ;;
         0|q|Q) exit 0 ;;
         *) warn "invalid choice" ;;
     esac
@@ -134,7 +135,8 @@ menu() {
         item 26 "Keep slot B" "run once slot B works"
         item 27 "Boot slot A" "the printer's original system"
         item 28 "Change the host address" "used by HelixScreen and k2oh-mcu-fw"
-        item 29 "MCU firmware status" "versions on the printer (updates: ./helper.sh t113 mcu-fw)"
+        item 29 "MCU firmware status" "board versions on the printer"
+        item 30 "Update MCU firmware" "latest Creality release; flashes only if you confirm"
         echo
         item 0 "Exit"
         echo

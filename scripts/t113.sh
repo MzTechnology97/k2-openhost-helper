@@ -6,20 +6,28 @@
 #   commit        keep slot B (run while slot B is running)
 #   boot-a        boot slot A again
 #   host [IP]     change the external host address used by slot B
-#   mcu-fw ARGS   run k2oh-mcu-fw on the printer (list, status, download, ...)
+#   mcu-fw ARGS   run k2oh-mcu-fw on the printer (update, list, status, ...)
 #
 # Slot A (the printer's current system) is never written. Slot B is built on
-# this host from Creality's own OTA image for the version slot A runs
-# (downloaded from Creality's CDN), so no Creality files are redistributed.
+# this host from Creality's own OTA image (downloaded from Creality's CDN),
+# so no Creality files are redistributed. The bootstrap itself comes from
+# https://github.com/MzTechnology97/k2-openhost-t113-bootstrap, cloned to
+# ~/k2-openhost-t113-bootstrap. Prepared and tested on stock 1.1.0.94; on other
+# releases the bootstrap and the T113 USB gadget (OTG) mode are not guaranteed.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
-T113_DIR="${HELPER_DIR}/t113/slot-b"
+# The printer-side bootstrap lives in its own repository.
+T113_REPO="${K2OH_T113_REPO:-https://github.com/MzTechnology97/k2-openhost-t113-bootstrap.git}"
+T113_BRANCH="${K2OH_T113_BRANCH:-main}"
+T113_DIR="${K2OH_T113_DIR:-${HOME}/k2-openhost-t113-bootstrap}"
 WORK_DIR="${K2OH_T113_WORK:-${HOME}/k2oh-t113}"
 T113_CONF="${STATE_DIR}/t113.conf"
 SSH_SOCK="${STATE_DIR}/t113-ssh.sock"
 KNOWN_HOSTS="${STATE_DIR}/t113_known_hosts"
-SUPPORTED_SLOT_A="1.1.0.94"
+# The work was prepared and tested on this stock release; others are allowed
+# with a warning (bootstrap and T113 USB gadget mode not guaranteed).
+TESTED_FIRMWARE="1.1.0.94"
 # Only the K2 Pro is supported: Creality model F012 on board CR0CN200400C10.
 K2_PRO_MODEL="F012"
 K2_PRO_BOARD="CR0CN200400C10"
@@ -141,6 +149,34 @@ wait_for_printer() {
     return 1
 }
 
+choose_base_version() {
+    # Slot B is built from the release slot A runs, so both slots carry the
+    # same MCU firmware files; the latest release is offered when slot A's is
+    # not in Creality's index.
+    local slot_a latest releases
+    slot_a="$(fact sys_version)"
+    releases="$(python3 "$T113_DIR/fetch-stock-ota.py" --list --board "$(fact board)")" \
+        || die "cannot read Creality's firmware index"
+    latest="$(tail -n1 <<<"$releases")"
+    if grep -qx "$slot_a" <<<"$releases"; then
+        BASE_VERSION="$slot_a"
+    else
+        warn "slot A's release ($slot_a) is not in Creality's index; the latest is $latest"
+        BASE_VERSION="$latest"
+    fi
+    BASE_VERSION="$(ask "Creality firmware release to build slot B from (latest: $latest)" "$BASE_VERSION")"
+    grep -qx "$BASE_VERSION" <<<"$releases" || die "release $BASE_VERSION is not in Creality's index"
+    if [[ "$BASE_VERSION" != "$TESTED_FIRMWARE" ]]; then
+        warn "This work was prepared and tested on firmware $TESTED_FIRMWARE only."
+        warn "On $BASE_VERSION the bootstrap and the T113 USB gadget (OTG) mode are NOT guaranteed."
+        confirm "Continue with $BASE_VERSION anyway?" n || die "stopped"
+    fi
+    if [[ "$BASE_VERSION" != "$slot_a" ]]; then
+        warn "Slot A ($slot_a) and slot B ($BASE_VERSION) carry different MCU firmware files:"
+        warn "each slot reflashes the boards to its own files when it boots."
+    fi
+}
+
 cmd_install() {
     cat <<EOF
 
@@ -154,6 +190,10 @@ cmd_install() {
     https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/DISCLAIMER.md
 EOF
     confirm "Continue?" n || return 0
+    step "Getting the T113 bootstrap"
+    apt_install git
+    clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
+    ok "$(git -C "$T113_DIR" log -1 --format="%h %s")"
     choose_addresses
     connect
 
@@ -166,26 +206,27 @@ EOF
     ok "Creality K2 Pro confirmed"
     [[ "$(fact slot)" == "A" ]] || die "the printer must be running slot A for the install (it runs slot $(fact slot))"
     [[ "$(fact env)" == "bootA/rootfsA" ]] || die "the U-Boot environment does not point at slot A"
-    [[ "$(fact sys_version)" == "$SUPPORTED_SLOT_A" ]] \
-        || die "slot A runs $(fact sys_version); this release supports slot A $SUPPORTED_SLOT_A only"
     (( $(fact udisk_free_kb) > 1500000 )) || die "the printer's UDISK needs about 1.5 GB free"
-    ok "slot A is stock $SUPPORTED_SLOT_A"
+    ok "slot A runs stock $(fact sys_version)"
+    choose_base_version
 
     step "Preparing the build tools"
     require_sudo
     apt_install fakeroot squashfs-tools curl python3
     mkdir -p "$WORK_DIR"
 
-    step "Downloading the stock Creality firmware $SUPPORTED_SLOT_A"
-    if [[ -f "$WORK_DIR/stock/kernel" && -f "$WORK_DIR/stock/rootfs" ]]; then
+    local stock="$WORK_DIR/stock-$BASE_VERSION"
+    step "Downloading the stock Creality firmware $BASE_VERSION"
+    if [[ -f "$stock/kernel" && -f "$stock/rootfs" ]]; then
         ok "already downloaded"
     else
-        python3 "$T113_DIR/fetch-stock-ota.py" "$SUPPORTED_SLOT_A" "$WORK_DIR/stock" --board "$(fact board)"
+        python3 "$T113_DIR/fetch-stock-ota.py" "$BASE_VERSION" "$stock" --board "$(fact board)"
     fi
 
     step "Building the slot B system"
     rm -rf "$WORK_DIR/out"
-    bash "$T113_DIR/build-slot-b.sh" --kernel "$WORK_DIR/stock/kernel" --rootfs "$WORK_DIR/stock/rootfs" --out "$WORK_DIR/out"
+    bash "$T113_DIR/build-slot-b.sh" --kernel "$stock/kernel" --rootfs "$stock/rootfs" \
+        --base-version "$BASE_VERSION" --out "$WORK_DIR/out"
     if confirm "Install HelixScreen on the printer screen (recommended)?" y; then
         download_helix "$WORK_DIR/out"
     fi
@@ -261,7 +302,7 @@ cmd_mcu_fw() {
     connect
     local args="" a
     for a in "$@"; do args+=" $(printf '%q' "$a")"; done
-    if [[ "${1:-}" == "apply" ]]; then
+    if [[ "${1:-}" == "apply" || "${1:-}" == "update" ]]; then
         info "Stop Klipper on this host first: sudo systemctl stop klipper"
         args+=" --moonraker http://${HOST_IP}:7125"
     fi
