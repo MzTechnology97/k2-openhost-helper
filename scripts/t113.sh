@@ -9,12 +9,18 @@
 #   mcu-fw ARGS   run k2oh-mcu-fw on the printer (update, list, status, ...)
 #
 # Slot A (the printer's current system) is never written. Slot B is built on
-# this host from Creality's own OTA image for the version slot A runs
-# (downloaded from Creality's CDN), so no Creality files are redistributed.
+# this host from Creality's own OTA image (downloaded from Creality's CDN),
+# so no Creality files are redistributed. The bootstrap itself comes from
+# https://github.com/MzTechnology97/k2-openhost-t113-bootstrap, cloned to
+# ~/k2-openhost-t113-bootstrap. Prepared and tested on stock 1.1.0.94; on other
+# releases the bootstrap and the T113 USB gadget (OTG) mode are not guaranteed.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
-T113_DIR="${HELPER_DIR}/t113/slot-b"
+# The printer-side bootstrap lives in its own repository.
+T113_REPO="${K2OH_T113_REPO:-https://github.com/MzTechnology97/k2-openhost-t113-bootstrap.git}"
+T113_BRANCH="${K2OH_T113_BRANCH:-main}"
+T113_DIR="${K2OH_T113_DIR:-${HOME}/k2-openhost-t113-bootstrap}"
 WORK_DIR="${K2OH_T113_WORK:-${HOME}/k2oh-t113}"
 T113_CONF="${STATE_DIR}/t113.conf"
 SSH_SOCK="${STATE_DIR}/t113-ssh.sock"
@@ -184,6 +190,10 @@ cmd_install() {
     https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/DISCLAIMER.md
 EOF
     confirm "Continue?" n || return 0
+    step "Getting the T113 bootstrap"
+    apt_install git
+    clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
+    ok "$(git -C "$T113_DIR" log -1 --format="%h %s")"
     choose_addresses
     connect
 
