@@ -91,6 +91,7 @@ do_choice() {
         29) run t113.sh host ;;
         30) run t113.sh mcu-fw status ;;
         31) run t113.sh mcu-fw update ;;
+        32) run t113.sh link ;;
         0|q|Q) exit 0 ;;
         *) warn "invalid choice" ;;
     esac
@@ -139,6 +140,7 @@ menu() {
         item 29 "Change the host address" "used by HelixScreen and k2oh-mcu-fw"
         item 30 "MCU firmware status" "board versions on the printer"
         item 31 "Update MCU firmware" "latest Creality release; flashes only if you confirm"
+        item 32 "Link the T113 controls" "buzzer, MCU power rail, telemetry (k2oh-ctl)"
         echo
         item 0 "Exit"
         echo
@@ -169,7 +171,7 @@ Usage: ./helper.sh [--yes] [command]
   config diff         compare your config with the K2 profile
   backup | restore    configuration backups in ${BACKUP_DIR}
   t113 <command>      printer T113 bootstrap: check | install | status | boot-b |
-                      commit | boot-a | host [IP] | mcu-fw <args>
+                      commit | boot-a | host [IP] | mcu-fw <args> | link
 
   --yes               answer yes to every question (unattended install)
 

@@ -8,6 +8,8 @@
 #   boot-a        boot slot A again
 #   host [IP]     change the external host address used by slot B
 #   mcu-fw ARGS   run k2oh-mcu-fw on the printer (update, list, status, ...)
+#   link          connect this host to k2oh-ctl on the printer: token,
+#                 [k2_t113] host, Moonraker power device for the MCU rail
 #
 # Slot A (the printer's current system) is never written. Slot B is built on
 # this host from Creality's own OTA image (downloaded from Creality's CDN),
@@ -325,11 +327,83 @@ EOF
     info "During the trial boot the screen shows only the boot logo until HelixScreen starts"
     info "(first boot installs it, about a minute). If slot B does not come up, power cycle"
     info "the printer: it returns to slot A."
+    if confirm "Link this host to the T113 control service now (k2oh-ctl)?" y; then
+        cmd_link
+    else
+        info "Later: $0 link"
+    fi
     if confirm "Start the trial boot of slot B now?" n; then
         cmd_boot_b
     else
         info "Later: $0 boot-b"
     fi
+}
+
+cmd_link() {
+    # Connects this host to k2oh-ctl, the control service of slot B. Safe to
+    # run again: it rewrites the same files.
+    connect
+    local token cfg="${CONFIG_DIR}/k2_t113.cfg" tokfile="${CONFIG_DIR}/k2oh_t113.token"
+    local mconf="${CONFIG_DIR}/moonraker_k2_t113.conf" pcfg="${CONFIG_DIR}/printer.cfg"
+    step "Linking this host to the T113 control service (k2oh-ctl)"
+    token="$(t113_ssh 'cat /mnt/UDISK/.k2openhost/ctl.token 2>/dev/null' | tr -d '\r\n ')"
+    [[ "$token" =~ ^[A-Za-z0-9_-]{16,}$ ]] \
+        || die "no k2oh-ctl token on the printer yet: install the T113 bootstrap first (menu 24)"
+    (umask 077 && printf '%s\n' "$token" > "$tokfile")
+    ok "token saved to $tokfile (readable only by you)"
+
+    if [[ ! -f "$cfg" ]]; then
+        [[ -f "${KLIPPER_DIR}/config/k2/k2_t113.cfg" ]] \
+            || die "this Kalico has no config/k2/k2_t113.cfg yet: update Kalico, then run '$0 link' again"
+        cp "${KLIPPER_DIR}/config/k2/k2_t113.cfg" "$cfg"
+    fi
+    sed -i "s|^host:.*|host: ${T113_IP}          # T113 address (set by the installer helper)|" "$cfg"
+    ok "[k2_t113] host: ${T113_IP} in $(basename "$cfg")"
+
+    (umask 077 && cat > "$mconf" <<EOF
+# K2-OpenHost: the printer's MCU power rail (T113 GPIO140) as a Moonraker power
+# device, through k2oh-ctl. Written by the installer helper ('t113 link').
+# The T113 refuses "off" unless the print state is idle.
+[power K2_MCU_Power]
+type: http
+on_url: http://${T113_IP}:7130/power/mcu
+off_url: http://${T113_IP}:7130/power/mcu
+status_url: http://${T113_IP}:7130/power/mcu
+request_template:
+  {% do http_request.set_method("POST") %}
+  {% do http_request.add_header("X-K2OH-Token", "${token}") %}
+  {% do http_request.add_header("Content-Type", "application/json") %}
+  {% do http_request.set_body({"command": command}) %}
+  {% do http_request.send() %}
+response_template:
+  {% set resp = http_request.last_response().json() %}
+  {resp["state"]}
+locked_while_printing: True
+restart_klipper_when_powered: True
+restart_delay: 3
+EOF
+)
+    ok "Moonraker power device K2_MCU_Power in $(basename "$mconf")"
+    if ! grep -q '^\[include moonraker_k2_t113.conf\]' "$(moonraker_conf)"; then
+        backup_file "$(moonraker_conf)"
+        printf '\n[include moonraker_k2_t113.conf]\n' >> "$(moonraker_conf)"
+        ok "included from moonraker.conf"
+    fi
+
+    if [[ -f "${KLIPPER_DIR}/klippy/extras/k2_t113.py" ]]; then
+        if grep -q '^#\[include k2_t113.cfg\]' "$pcfg"; then
+            backup_file "$pcfg"
+            sed -i 's|^#\[include k2_t113.cfg\]|[include k2_t113.cfg]|' "$pcfg"
+        elif ! grep -q '^\[include k2_t113.cfg\]' "$pcfg"; then
+            backup_file "$pcfg"
+            sed -i 's|^\[include motor_control.cfg\]|&\n[include k2_t113.cfg]|' "$pcfg"
+        fi
+        ok "[include k2_t113.cfg] active in printer.cfg"
+    else
+        warn "this Kalico has no k2_t113 module yet: the include stays off."
+        warn "Update Kalico, then run '$0 link' again."
+    fi
+    info "Restart Moonraker and Klipper to load the changes (menu 22)."
 }
 
 cmd_boot_b() {
@@ -438,5 +512,6 @@ case "${1:-}" in
     boot-a) cmd_boot_a ;;
     host) cmd_host "${2:-}" ;;
     mcu-fw) shift; cmd_mcu_fw "$@" ;;
-    *) sed -n '2,11p' "$0"; exit 2 ;;
+    link) cmd_link ;;
+    *) sed -n '2,13p' "$0"; exit 2 ;;
 esac
