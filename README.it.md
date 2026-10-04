@@ -183,7 +183,7 @@ Prima di stampare segui le verifiche del [piano dei test hardware](https://githu
 
 Componenti opzionali:
 
-- **Cartographer3D** dal [fork dedicato K2-OpenHost](https://github.com/MzTechnology97/cartographer3d-plugin-k2openhost), collegato in USB diretta. PRTouch resta la sonda validata. Kalico non include Cartographer: il fork viene installato in `~/klippy-env` con il loader in `klippy/plugins/`, e l'installer lo ripristina dopo ogni installazione o aggiornamento di Kalico.
+- **Cartographer3D**: il [plugin ufficiale](https://github.com/Cartographer3D/cartographer3d-plugin), che supporta direttamente Kalico e la K2, collegato in USB diretta. PRTouch resta la sonda validata. Il plugin è un pacchetto pip in `~/klippy-env` con il loader in `klippy/plugins/`; Moonraker lo aggiorna come pacchetto Python e l'installer mantiene il loader dopo ogni installazione o aggiornamento di Kalico. Un host con il vecchio fork K2-OpenHost viene migrato automaticamente.
 - Webcam con **Crowsnest**.
 - **MCU host** `[mcu rpi]`: GPIO, accelerometro e temperatura della scheda host.
 - Collegamento a un server **Spoolman** esistente.
@@ -250,7 +250,7 @@ Le tue modifiche non vengono mai sovrascritte. Quando un file del profilo è sta
 | T113 USB gadget | Il gadget della K2 è collegato e ogni canale (Main MCU, Nozzle MCU, RS-485/CFS) corrisponde al dispositivo usato in `printer.cfg`. |
 | Services | Klipper, Moonraker e nginx attivi, più i servizi opzionali; l'attesa all'avvio di Klipper è installata. |
 | Software | Repository, ramo e commit di Kalico; versione di Mainsail installata. |
-| Cartographer | Il pacchetto è il fork K2-OpenHost ed esiste un solo loader. |
+| Cartographer | È installato il plugin ufficiale (non il vecchio fork K2-OpenHost) ed esiste un solo loader. |
 | Klipper and the CFS | Stato di Klipper, driver e modalità del CFS, file della libreria filamenti. |
 
 L'esempio qui sopra è stato preso sulla macchina di riferimento: segnala ModemManager in esecuzione e Crowsnest installato ma fermo.

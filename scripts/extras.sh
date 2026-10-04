@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Optional components for the K2-OpenHost host.
 #   hostmcu       Klipper Linux host MCU ([mcu rpi]: host GPIO/ADXL, CM5 temperature)
-#   cartographer  Cartographer3D plugin, K2-OpenHost fork (direct USB to the host)
+#   cartographer  Cartographer3D plugin, official (direct USB to the host)
 #   shaketune     Klippain Shake&Tune resonance tools
 #   timelapse     Moonraker timelapse (the K2 profile ships its macros)
 #   crowsnest     webcam streaming
@@ -67,24 +67,44 @@ hostmcu() {
 }
 
 cartographer() {
-    step "Cartographer3D plugin (K2-OpenHost fork)"
+    step "Cartographer3D plugin (official)"
     [[ -x "$KLIPPY_ENV/bin/python" ]] || die "install Kalico first"
-    # Kalico does not ship Cartographer. This fork is the only supported build
-    # on the external host; it replaces any other cartographer3d-plugin install.
-    clone_or_update "$CARTOGRAPHER_REPO" "$CARTOGRAPHER_DIR" main
-    "$CARTOGRAPHER_DIR/scripts/install.sh" --klipper "$KLIPPER_DIR" --klippy-env "$KLIPPY_ENV"
-    add_section "$(moonraker_conf)" "update_manager cartographer" <<EOF
-type: git_repo
-channel: dev
-path: ${CARTOGRAPHER_DIR}
-origin: ${CARTOGRAPHER_REPO}
-primary_branch: main
+    # Kalico does not ship Cartographer; the official plugin supports Kalico
+    # and the K2 (non-critical reconnect, register_as_probe) directly.
+    local conf
+    conf="$(moonraker_conf)"
+    if [[ -d "$LEGACY_CARTOGRAPHER_DIR" ]]; then
+        info "replacing the former K2-OpenHost Cartographer fork"
+        "$KLIPPY_ENV/bin/pip" uninstall -q -y cartographer3d-plugin || true
+        mkdir -p "$BACKUP_DIR"
+        mv "$LEGACY_CARTOGRAPHER_DIR" "$BACKUP_DIR/cartographer3d-plugin-k2openhost-$(date +%Y%m%d-%H%M%S)"
+        ok "old fork moved to $BACKUP_DIR"
+    fi
+    # Moonraker updates the official plugin as a pip package.
+    if has_section "$conf" "update_manager cartographer" && grep -q "cartographer3d-plugin-k2openhost" "$conf"; then
+        backup_file "$conf"
+        python3 - "$conf" <<'PY'
+import re, sys
+path = sys.argv[1]
+text = open(path).read()
+text = re.sub(r"^\[update_manager cartographer\]\n(?:(?!^\[).*\n)*", "", text, flags=re.M)
+open(path, "w").write(text)
+PY
+    fi
+    local tmp
+    tmp="$(mktemp -d)"
+    git clone -q --depth 1 "$CARTOGRAPHER_REPO" "$tmp/cartographer"
+    bash "$tmp/cartographer/scripts/install.sh" --klipper "$KLIPPER_DIR" --klippy-env "$KLIPPY_ENV"
+    rm -rf "$tmp"
+    add_section "$conf" "update_manager cartographer" <<EOF
+type: python
+channel: stable
 virtualenv: ${KLIPPY_ENV}
-requirements: requirements.txt
+project_name: cartographer3d-plugin
 is_system_service: False
 managed_services: klipper
 info_tags:
-    desc=Cartographer3D Plugin - K2-OpenHost
+    desc=Cartographer3D Plugin
 EOF
     info "Connect Cartographer to a host USB port: the udev rule names it /dev/k2-cartographer."
     info "PRTouch stays the validated probe; enable Cartographer only after its own tests."

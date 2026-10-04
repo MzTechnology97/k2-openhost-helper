@@ -27,8 +27,10 @@ KALICO_REPO="${KALICO_REPO:-https://github.com/MzTechnology97/kalico-k2pro.git}"
 KALICO_BRANCH="${KALICO_BRANCH:-k2-pro-openhost}"
 MOONRAKER_REPO="${MOONRAKER_REPO:-https://github.com/Arksine/moonraker.git}"
 MAINSAIL_GH_REPO="${MAINSAIL_GH_REPO:-MzTechnology97/mainsail-k2openhost}"
-CARTOGRAPHER_REPO="${CARTOGRAPHER_REPO:-https://github.com/MzTechnology97/cartographer3d-plugin-k2openhost.git}"
-CARTOGRAPHER_DIR="${CARTOGRAPHER_DIR:-${HOME}/cartographer3d-plugin-k2openhost}"
+# Official Cartographer3D plugin (it supports Kalico and the K2 directly).
+CARTOGRAPHER_REPO="${CARTOGRAPHER_REPO:-https://github.com/Cartographer3D/cartographer3d-plugin.git}"
+# Former K2-OpenHost fork, migrated away when found.
+LEGACY_CARTOGRAPHER_DIR="${HOME}/cartographer3d-plugin-k2openhost"
 SHAKETUNE_REPO="${SHAKETUNE_REPO:-https://github.com/Frix-x/klippain-shaketune.git}"
 SHAKETUNE_DIR="${SHAKETUNE_DIR:-${HOME}/klippain_shaketune}"
 TIMELAPSE_REPO="${TIMELAPSE_REPO:-https://github.com/mainsail-crew/moonraker-timelapse.git}"
@@ -242,13 +244,22 @@ restart_service() {
     fi
 }
 
-# Cartographer is not part of kalico-k2pro: the dedicated fork's installer
-# puts its loader in klippy/plugins. Re-run it after Kalico changes so the
-# loader exists exactly once.
+# Cartographer is not part of kalico-k2pro: the official plugin is a pip
+# package in the Klippy environment plus a one-line loader in klippy/plugins
+# (ignored by Git). Keep that loader present, and only once, after Kalico
+# changes.
+CARTOGRAPHER_LOADER="from cartographer.extra import *"
+
 refresh_cartographer_loader() {
-    [[ -x "$CARTOGRAPHER_DIR/scripts/install.sh" ]] || return 0
-    info "refreshing the Cartographer loader (cartographer3d-plugin-k2openhost)"
-    "$CARTOGRAPHER_DIR/scripts/install.sh" --klipper "$KLIPPER_DIR" --klippy-env "$KLIPPY_ENV" >/dev/null         && ok "Cartographer loader in klippy/plugins"         || warn "the Cartographer installer failed; run scripts/extras.sh cartographer"
+    "$KLIPPY_ENV/bin/pip" show cartographer3d-plugin >/dev/null 2>&1 || return 0
+    local plugins="$KLIPPER_DIR/klippy/plugins" extra="$KLIPPER_DIR/klippy/extras/cartographer.py"
+    [[ -d "$plugins" ]] || return 0
+    if [[ -e "$extra" ]] && ! git -C "$KLIPPER_DIR" ls-files --error-unmatch klippy/extras/cartographer.py >/dev/null 2>&1; then
+        rm -f "$extra"
+        info "removed an old Cartographer loader from klippy/extras"
+    fi
+    printf '%s\n' "$CARTOGRAPHER_LOADER" > "$plugins/cartographer.py"
+    ok "Cartographer loader in klippy/plugins"
 }
 
 klipper_is_printing() {
