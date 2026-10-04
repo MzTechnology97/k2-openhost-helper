@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # K2-OpenHost T113 bootstrap, driven from this host over SSH.
+#   check         read-only compatibility check of the printer (writes nothing)
 #   install       build the slot B system and write it to the printer
 #   status        slot, setup and HelixScreen state on the printer
 #   boot-b        trial boot of slot B (a power cycle returns to slot A)
@@ -102,6 +103,8 @@ echo "sn_board=$(get_sn_mac.sh board 2>/dev/null)"
 echo "kernel=$(uname -v)"
 echo "udisk_free_kb=$(df -k /mnt/UDISK | awk 'NR==2 {print $4}')"
 echo "k2oh=$([ -f /etc/k2openhost-release ] && sed -n 's/^version=//p' /etc/k2openhost-release)"
+echo "slot_b=$([ "$(head -c 8 /dev/by-name/bootB 2>/dev/null)" = "ANDROID!" ] && [ "$(head -c 4 /dev/by-name/rootfsB 2>/dev/null)" = "hsqs" ] && echo image || echo empty)"
+echo "k2oh_conf=$([ -f /mnt/UDISK/.k2openhost/k2openhost.conf ] && echo yes || echo no)"
 EOF
 }
 
@@ -147,6 +150,92 @@ wait_for_printer() {
         sleep 5
     done
     return 1
+}
+
+check_printer() {
+    # Read-only checks shared by 'check' and 'install'. Prints the findings;
+    # returns non-zero when the install must not continue.
+    local problems=0
+    step "Checking the printer (read-only)"
+    FACTS="$(remote_facts)"
+    info "model: $(fact model), board: $(fact board) / $(fact sn_board)"
+    info "running slot: $(fact slot), next boot: $(fact env)"
+    info "slot A firmware: $(fact sys_version)"
+    info "UDISK free: $(( $(fact udisk_free_kb) / 1024 )) MB"
+    if [[ "$(fact model)" == "$K2_PRO_MODEL" && "$(fact board)" == "$K2_PRO_BOARD" && "$(fact sn_board)" == "$K2_PRO_BOARD" ]]; then
+        ok "Creality K2 Pro confirmed"
+    else
+        fail "not a Creality K2 Pro (needs model $K2_PRO_MODEL, board $K2_PRO_BOARD)"; problems=1
+    fi
+    if [[ "$(fact slot)" == "A" && "$(fact env)" == "bootA/rootfsA" ]]; then
+        ok "slot A is running and boots by default"
+    elif [[ "$(fact slot)" == "B" ]]; then
+        warn "slot B is running (K2-OpenHost $(fact k2oh)); the install runs from slot A"; problems=1
+    else
+        fail "the boot environment does not point at the running slot A"; problems=1
+    fi
+    if (( $(fact udisk_free_kb) > 1500000 )); then
+        ok "enough free space on UDISK"
+    else
+        fail "UDISK needs about 1.5 GB free"; problems=1
+    fi
+    if [[ "$(fact sys_version)" == "$TESTED_FIRMWARE" ]]; then
+        ok "slot A runs $TESTED_FIRMWARE, the firmware this work was tested on"
+    else
+        warn "slot A runs $(fact sys_version): tested only on $TESTED_FIRMWARE; the bootstrap and"
+        warn "the T113 USB gadget (OTG) mode are not guaranteed on other firmware"
+    fi
+    if [[ "$(fact slot_b)" == image ]]; then
+        info "slot B already holds a system image (for example from an earlier Creality update):"
+        info "the install saves it to /mnt/UDISK/.k2openhost/backup before replacing it"
+    else
+        info "slot B is empty"
+    fi
+    [[ "$(fact k2oh_conf)" == yes ]] && info "a K2-OpenHost setup is already on UDISK (it is kept)"
+    true
+    return "$problems"
+}
+
+proposed_base_version() {
+    # Prints the release slot B would be built from (slot A's, else latest).
+    local releases
+    releases="$(python3 "$T113_DIR/fetch-stock-ota.py" --list --board "$(fact board)")" || return 1
+    if grep -qx "$(fact sys_version)" <<<"$releases"; then
+        fact sys_version
+    else
+        tail -n1 <<<"$releases"
+    fi
+}
+
+cmd_check() {
+    step "Getting the T113 bootstrap"
+    apt_install git
+    clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
+    ok "$(git -C "$T113_DIR" log -1 --format="%h %s")"
+    choose_addresses
+    connect
+    local status=0
+    check_printer || status=1
+    step "Creality firmware for slot B"
+    local proposed latest
+    latest="$(python3 "$T113_DIR/fetch-stock-ota.py" --list --board "$(fact board)" | tail -n1)" \
+        || die "cannot read Creality's firmware index"
+    proposed="$(proposed_base_version)"
+    info "latest Creality release: $latest"
+    info "slot B would be built from: $proposed"
+    if [[ "$proposed" == "$TESTED_FIRMWARE" ]]; then
+        ok "the tested release"
+    else
+        warn "not the tested $TESTED_FIRMWARE: the install asks for confirmation"
+    fi
+    step "Result"
+    if (( status == 0 )); then
+        ok "ready for the T113 bootstrap; nothing was changed on the printer"
+        info "Next: ./helper.sh t113 install (menu 24)"
+    else
+        fail "not ready; see the messages above. Nothing was changed on the printer."
+        return 1
+    fi
 }
 
 choose_base_version() {
@@ -197,17 +286,7 @@ EOF
     choose_addresses
     connect
 
-    step "Checking the printer (read-only)"
-    FACTS="$(remote_facts)"
-    info "running slot: $(fact slot), next boot: $(fact env)"
-    info "printer model: $(fact model), board: $(fact board) / $(fact sn_board)"
-    info "slot A firmware: $(fact sys_version)"
-    [[ "$(fact model)" == "$K2_PRO_MODEL" && "$(fact board)" == "$K2_PRO_BOARD" && "$(fact sn_board)" == "$K2_PRO_BOARD" ]]         || die "this is not a Creality K2 Pro (model $K2_PRO_MODEL, board $K2_PRO_BOARD); nothing was changed"
-    ok "Creality K2 Pro confirmed"
-    [[ "$(fact slot)" == "A" ]] || die "the printer must be running slot A for the install (it runs slot $(fact slot))"
-    [[ "$(fact env)" == "bootA/rootfsA" ]] || die "the U-Boot environment does not point at slot A"
-    (( $(fact udisk_free_kb) > 1500000 )) || die "the printer's UDISK needs about 1.5 GB free"
-    ok "slot A runs stock $(fact sys_version)"
+    check_printer || die "the printer is not ready for the bootstrap; nothing was changed"
     choose_base_version
 
     step "Preparing the build tools"
@@ -312,6 +391,7 @@ cmd_mcu_fw() {
 }
 
 case "${1:-}" in
+    check) cmd_check ;;
     install) cmd_install ;;
     status) cmd_status ;;
     boot-b) cmd_boot_b ;;
@@ -319,5 +399,5 @@ case "${1:-}" in
     boot-a) cmd_boot_a ;;
     host) cmd_host "${2:-}" ;;
     mcu-fw) shift; cmd_mcu_fw "$@" ;;
-    *) sed -n '2,13p' "$0"; exit 2 ;;
+    *) sed -n '2,11p' "$0"; exit 2 ;;
 esac

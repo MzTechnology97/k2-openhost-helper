@@ -82,14 +82,15 @@ do_choice() {
         20) run backup.sh backup ;;
         21) run backup.sh restore ;;
         22) guard_not_printing; restart_service klipper; restart_service moonraker ;;
-        23) run t113.sh install ;;
-        24) run t113.sh status ;;
-        25) run t113.sh boot-b ;;
-        26) run t113.sh commit ;;
-        27) run t113.sh boot-a ;;
-        28) run t113.sh host ;;
-        29) run t113.sh mcu-fw status ;;
-        30) run t113.sh mcu-fw update ;;
+        23) run t113.sh check ;;
+        24) run t113.sh install ;;
+        25) run t113.sh status ;;
+        26) run t113.sh boot-b ;;
+        27) run t113.sh commit ;;
+        28) run t113.sh boot-a ;;
+        29) run t113.sh host ;;
+        30) run t113.sh mcu-fw status ;;
+        31) run t113.sh mcu-fw update ;;
         0|q|Q) exit 0 ;;
         *) warn "invalid choice" ;;
     esac
@@ -129,14 +130,15 @@ menu() {
         item 22 "Restart Klipper / Moonraker"
         echo
         printf '  %s[Printer T113 - slot B]%s\n' "$C_WHITE" "$C_NC"
-        item 23 "Install the T113 bootstrap" "K2-OpenHost system in slot B, HelixScreen; slot A untouched"
-        item 24 "T113 status" "running slot, next boot, setup, HelixScreen"
-        item 25 "Trial boot slot B" "a power cycle returns to slot A"
-        item 26 "Keep slot B" "run once slot B works"
-        item 27 "Boot slot A" "the printer's original system"
-        item 28 "Change the host address" "used by HelixScreen and k2oh-mcu-fw"
-        item 29 "MCU firmware status" "board versions on the printer"
-        item 30 "Update MCU firmware" "latest Creality release; flashes only if you confirm"
+        item 23 "Check the printer" "read-only: K2 Pro model, slot, firmware release"
+        item 24 "Install the T113 bootstrap" "K2-OpenHost system in slot B, HelixScreen; slot A untouched"
+        item 25 "T113 status" "running slot, next boot, setup, HelixScreen"
+        item 26 "Trial boot slot B" "a power cycle returns to slot A"
+        item 27 "Keep slot B" "run once slot B works"
+        item 28 "Boot slot A" "the printer's original system"
+        item 29 "Change the host address" "used by HelixScreen and k2oh-mcu-fw"
+        item 30 "MCU firmware status" "board versions on the printer"
+        item 31 "Update MCU firmware" "latest Creality release; flashes only if you confirm"
         echo
         item 0 "Exit"
         echo
@@ -166,7 +168,7 @@ Usage: ./helper.sh [--yes] [command]
   doctor              read-only health check
   config diff         compare your config with the K2 profile
   backup | restore    configuration backups in ${BACKUP_DIR}
-  t113 <command>      printer T113 bootstrap: install | status | boot-b |
+  t113 <command>      printer T113 bootstrap: check | install | status | boot-b |
                       commit | boot-a | host [IP] | mcu-fw <args>
 
   --yes               answer yes to every question (unattended install)
