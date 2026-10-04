@@ -259,10 +259,10 @@ The printer's own T113 board runs the USB gadget bridges to this host. The boots
 <img src="docs/images/cli-t113-mcu-fw-update.png" alt="k2oh-mcu-fw update" width="760">
 
 **5. T113 control service** (menu 32, `./helper.sh t113 link`): connects Kalico and Moonraker to `k2oh-ctl` on the printer:
-- the buzzer: `T113_BEEP`, `M300`, and the external RFID beep;
-- T113 telemetry: `T113_STATUS`;
+- the buzzer: `BUZZER`, `M300`, and the external RFID beep;
+- T113 telemetry: `BOARD_STATUS`;
 - bridge and HelixScreen restarts;
-- the MCU power rail: the Moonraker power device `K2_MCU_Power`, locked while printing, and `T113_MCU_POWER_CYCLE CONFIRM=1`.
+- the MCU power rail: the Moonraker power device `K2_MCU_Power`, locked while printing, and `MCU_POWER_CYCLE CONFIRM=1`.
 
 Restart Moonraker and Klipper afterwards (menu 22).
 

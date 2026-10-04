@@ -259,10 +259,10 @@ La scheda T113 della stampante esegue i bridge USB gadget verso questo host. Il 
 <img src="docs/images/cli-t113-mcu-fw-update.png" alt="k2oh-mcu-fw update" width="760">
 
 **5. Servizio di controllo del T113** (voce 32, `./helper.sh t113 link`): collega Kalico e Moonraker a `k2oh-ctl` sulla stampante:
-- il buzzer: `T113_BEEP`, `M300`, e il bip dell'RFID esterno;
-- la telemetria del T113: `T113_STATUS`;
+- il buzzer: `BUZZER`, `M300`, e il bip dell'RFID esterno;
+- la telemetria del T113: `BOARD_STATUS`;
 - il riavvio dei bridge e di HelixScreen;
-- l'alimentazione delle MCU: il dispositivo Moonraker `K2_MCU_Power`, bloccato durante la stampa, e `T113_MCU_POWER_CYCLE CONFIRM=1`.
+- l'alimentazione delle MCU: il dispositivo Moonraker `K2_MCU_Power`, bloccato durante la stampa, e `MCU_POWER_CYCLE CONFIRM=1`.
 
 Poi riavvia Moonraker e Klipper (voce 22).
 
