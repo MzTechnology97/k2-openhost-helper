@@ -168,6 +168,8 @@ Tutte le righe dovrebbero essere verdi. Le righe rosse `✘` dicono cosa non va 
 
 Nel browser apri `http://k2host.local/` (oppure `http://<indirizzo-ip>/`). La dashboard mostra il pannello CFS, il percorso del filamento in tempo reale e lo stato della stampante. La [guida Mainsail K2-OpenHost](https://github.com/MzTechnology97/mainsail-k2openhost/blob/develop/docs/K2_CFS.md) spiega ogni funzione del CFS, compresa la libreria filamenti e come aggiungere i tuoi filamenti.
 
+Per inviare le stampe da OrcaSlicer ufficiale con gli slot del CFS già nella lista filamenti, vedi [OrcaSlicer e il CFS](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/ORCASLICER.md).
+
 Prima di stampare segui le verifiche del [piano dei test hardware](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/HARDWARE_TEST_PLAN.md): homing, riscaldatori e una prima stampa supervisionata.
 
 ## Cosa viene installato
