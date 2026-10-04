@@ -11,6 +11,8 @@
 
 The K2-OpenHost Installer Helper turns an external Linux computer into a ready [K2-OpenHost](https://github.com/MzTechnology97/K2-OpenHost) host. It installs Kalico, Moonraker and the Mainsail K2-OpenHost fork, which run the Creality K2 Pro through its original mainboard; the K2's T113 board acts as a USB gadget bridge. The menu is styled after the [Creality Helper Script for the K2 series](https://github.com/tofuliang/Creality-Helper-Script-K2-Series).
 
+From the same menu it also prepares the printer: the **T113 bootstrap** writes a K2-OpenHost system to the T113's spare slot B, with the USB gadget bridges and HelixScreen pointed at this host. One menu sets up both the external host and the printer. MCU firmware updates stay a manual, confirmed step.
+
 ```text
 Creality K2 Pro mainboard (T113)                External Linux host (this installer)
   Main MCU   ttyS2 ── ttyGS0 ─┐                  ┌── /dev/ttyUSB0 = /dev/k2-main
@@ -28,15 +30,16 @@ Creality K2 Pro mainboard (T113)                External Linux host (this instal
 2. [Step-by-step guide for beginners](#step-by-step-guide-for-beginners)
 3. [What gets installed](#what-gets-installed)
 4. [Menu reference](#menu-reference)
-5. [Command line](#command-line)
-6. [Your printer configuration](#your-printer-configuration)
-7. [Health check (doctor)](#health-check-doctor)
-8. [Updates](#updates)
-9. [Backup and restore](#backup-and-restore)
-10. [Troubleshooting](#troubleshooting)
-11. [Safety](#safety)
-12. [Roadmap](#roadmap)
-13. [Credits](#credits)
+5. [Printer T113 bootstrap](#printer-t113-bootstrap)
+6. [Command line](#command-line)
+7. [Your printer configuration](#your-printer-configuration)
+8. [Health check (doctor)](#health-check-doctor)
+9. [Updates](#updates)
+10. [Backup and restore](#backup-and-restore)
+11. [Troubleshooting](#troubleshooting)
+12. [Safety](#safety)
+13. [Roadmap](#roadmap)
+14. [Credits](#credits)
 
 ## Quick start
 
@@ -63,7 +66,7 @@ No Linux experience is needed: every command below can be copied and pasted.
 | Power supply | The official supply for your board. Under-voltage causes random disconnections. |
 | USB cable | A **data** cable from a host USB port to the K2 service Micro-USB port. Charge-only cables do not work. |
 | Network | Ethernet or Wi-Fi, with internet access during the install. |
-| The K2 | A **Creality K2 Pro** on stock firmware, reachable on your network. The T113 bootstrap was prepared and tested on **1.1.0.94**; on newer firmware it and the T113 USB gadget (OTG) mode are not guaranteed. Its T113 board must run the three USB gadget serial bridges: menu **23** installs them in the printer's spare system slot (slot B) with HelixScreen, leaving the current system (slot A) untouched. See the [T113 bootstrap guide](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap/blob/main/README.md). |
+| The K2 | A **Creality K2 Pro** on stock firmware, reachable on your network. The T113 bootstrap was prepared and tested on **1.1.0.94**; on newer firmware it and the T113 USB gadget (OTG) mode are not guaranteed. Its T113 board must run the three USB gadget serial bridges: menu **23** checks the printer and menu **24** installs them in the printer's spare system slot (slot B) with HelixScreen, leaving the current system (slot A) untouched. See the [T113 bootstrap guide](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap/blob/main/README.md). |
 | Another computer | Windows, macOS or Linux, to prepare the card and connect to the host. |
 | Cameras (optional) | The nozzle and chamber cameras cannot run through the T113 in OpenHost mode: rewire their original cable path to USB ports of the host, then use the Crowsnest option. |
 
@@ -153,7 +156,10 @@ This applies the serial-port permissions given to your user. Reconnect with `ssh
 ### 9. Connect the K2
 
 1. Connect the USB data cable between a USB port of the host and the K2 service Micro-USB port.
-2. Run menu **23) Install the T113 bootstrap** (`./helper.sh t113 install`): it asks for the printer's IP, checks that it is a K2 Pro, builds the slot B system from Creality's own firmware and writes it, then offers the trial boot. Follow the [T113 bootstrap guide](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap/blob/main/README.md).
+2. Prepare the printer's T113 board (details in [Printer T113 bootstrap](#printer-t113-bootstrap)):
+   1. menu **23) Check the printer**: read-only, it confirms the K2 Pro and shows the firmware release slot B would use;
+   2. menu **24) Install the T113 bootstrap**: builds slot B from Creality's own firmware, writes it (slot A untouched) and offers the trial boot;
+   3. after the trial boot, when Mainsail shows the printer ready, menu **27) Keep slot B**.
 3. Klipper starts by itself: it waits up to 60 seconds for the three channels every time it starts.
 
 ### 10. Check the host
@@ -211,16 +217,45 @@ KAMP is not installed separately: Kalico already includes it, and the K2 profile
 | 19 | Serial names | Switches `printer.cfg` and the start gate to `/dev/k2-*` names, independent of USB enumeration order. |
 | 20 / 21 | Backup / Restore | Archives or restores the configuration, CFS filament library and CFS state. |
 | 22 | Restart | Restarts Klipper and Moonraker. Refused while printing. |
-| 23 | Install the T113 bootstrap | Asks the printer IP and confirms this host's IP, clones the [T113 bootstrap](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap), checks over SSH that the printer is a K2 Pro, builds slot B from Creality's OTA (slot A's release or a newer one; tested on 1.1.0.94 only), adds HelixScreen, writes slot B (slot A untouched) and offers the trial boot. |
-| 24 | T113 status | Running slot, next boot, trial flag, first-boot setup, HelixScreen. |
-| 25 | Trial boot slot B | Boots slot B once; a power cycle returns to slot A. |
-| 26 | Keep slot B | Makes slot B the default (run on a working slot B). |
-| 27 | Boot slot A | Back to the printer's original system. |
-| 28 | Change the host address | Updates the host used by HelixScreen and `k2oh-mcu-fw` on the printer. |
-| 29 | MCU firmware status | Board versions on the printer and the firmware files slot B would flash. |
-| 30 | Update MCU firmware | Downloads the latest Creality release, stages it, shows what changes and flashes only if you confirm (stop Klipper on the host first). Step by step: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
+| 23 | Check the printer | Read-only: asks the printer IP and confirms this host's IP, checks over SSH that the printer is a K2 Pro (model `F012`, board `CR0CN200400C10`), the running slot, free space and slot A's firmware, and shows the Creality release slot B would be built from. Writes nothing. |
+| 24 | Install the T113 bootstrap | Clones the [T113 bootstrap](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap), repeats the checks, builds slot B from Creality's OTA (slot A's release or a newer one; tested on 1.1.0.94 only), adds HelixScreen, writes slot B (slot A untouched) and offers the trial boot. |
+| 25 | T113 status | Running slot, next boot, trial flag, first-boot setup, HelixScreen. |
+| 26 | Trial boot slot B | Boots slot B once; a power cycle returns to slot A. |
+| 27 | Keep slot B | Makes slot B the default (run on a working slot B). |
+| 28 | Boot slot A | Back to the printer's original system. |
+| 29 | Change the host address | Updates the host used by HelixScreen and `k2oh-mcu-fw` on the printer. |
+| 30 | MCU firmware status | Board versions on the printer and the firmware files slot B would flash. |
+| 31 | Update MCU firmware | Downloads the latest Creality release, stages it, shows what changes and flashes only if you confirm (stop Klipper on the host first). Step by step: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
 
 Entries already installed show `[installed]`. If a step fails, the menu shows the error and stays open.
+
+## Printer T113 bootstrap
+
+The printer's own T113 board runs the USB gadget bridges to this host. The bootstrap puts a K2-OpenHost system in the T113's **spare slot B** and never writes **slot A**, the system the printer runs today. It is developed in its own repository: [k2-openhost-t113-bootstrap](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap). Its [complete guide](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap/blob/main/README.md) covers every step, the trial boot, recovery and removal.
+
+> [!IMPORTANT]
+> Prepared and tested on the K2 Pro stock firmware **1.1.0.94**. Newer releases are accepted with a warning, but on them the bootstrap and the T113 USB gadget (OTG) mode are **not guaranteed**.
+
+**1. Check the printer** (menu 23, `./helper.sh t113 check`). Read-only: model, slot, free space, firmware release and the Creality release slot B would use.
+
+<img src="docs/images/cli-t113-check.png" alt="T113 check" width="760">
+
+**2. Install** (menu 24, `./helper.sh t113 install`):
+1. downloads the Creality OTA from Creality's CDN and checks its MD5;
+2. builds slot B and adds HelixScreen;
+3. uploads to the printer, backs up the old slot B and the U-Boot environment, writes slot B and reads it back;
+4. saves this host's IP for HelixScreen and `k2oh-mcu-fw`.
+
+**3. Trial boot** (menu 26). Slot B boots once. If it does not come up, power cycle the printer and it returns to slot A. On the first boot HelixScreen installs itself, already pointed at this host. Connect the service Micro-USB cable and check Mainsail, then **keep slot B** (menu 27). Menu 28 returns to slot A at any time.
+
+**4. MCU, motor and CFS firmware** (menu 31, `./helper.sh t113 mcu-fw update`):
+1. downloads the latest Creality release and keeps only the firmware files;
+2. stages it in slot B and shows which boards would change;
+3. flashes **only if you answer yes**, with Creality's own tools, after checking that Klipper on this host is stopped (`sudo systemctl stop klipper`).
+
+`apply --cfs` includes the CFS units. This is an example run on slot B, answering no:
+
+<img src="docs/images/cli-t113-mcu-fw-update.png" alt="k2oh-mcu-fw update" width="760">
 
 ## Command line
 
