@@ -225,7 +225,7 @@ KAMP non viene installato a parte: è già integrato in Kalico e lo configura `k
 | 28 | Boot slot A | Torna al sistema originale della stampante. |
 | 29 | Change the host address | Aggiorna l'host usato da HelixScreen e da `k2oh-mcu-fw` sulla stampante. |
 | 30 | MCU firmware status | Versioni delle schede sulla stampante e file firmware che lo slot B scriverebbe. |
-| 31 | Update MCU firmware | Scarica l'ultima versione Creality, la prepara, mostra cosa cambia e aggiorna solo se confermi (prima ferma Klipper sull'host). Passo per passo: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (vedi la guida). |
+| 31 | Update MCU firmware | Scarica l'ultima versione Creality, la prepara, mostra cosa cambia e aggiorna solo se confermi. Se la stampante è inattiva propone di fermare Klipper su questo host, poi passa alla stampante una prova che le porte del gadget sono libere (serve `sudo`); gli stati sconosciuti bloccano. Passo per passo: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (vedi la guida). |
 
 Le voci già installate mostrano `[installed]`. Se un passaggio fallisce, il menu mostra l'errore e resta aperto.
 
