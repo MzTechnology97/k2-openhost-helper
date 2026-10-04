@@ -102,7 +102,7 @@ menu() {
         item 7 "Mainsail K2-OpenHost" "CFS panel, filament path, library, print mapping $(mark mainsail)"
         echo
         printf '  %s[Optional]%s\n' "$C_WHITE" "$C_NC"
-        item 8 "Cartographer3D" "K2-OpenHost fork, direct USB $(mark cartographer)"
+        item 8 "Cartographer3D" "official plugin, direct USB $(mark cartographer)"
         item 9 "Klippain Shake&Tune" "$(mark shaketune)"
         item 10 "Moonraker timelapse" "$(mark timelapse)"
         item 11 "Crowsnest webcam" "$(mark crowsnest)"

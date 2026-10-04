@@ -88,14 +88,17 @@ for loader in "$KLIPPER_DIR/klippy/extras/cartographer.py" "$KLIPPER_DIR/klippy/
     [[ -e "$loader" ]] && carto_loaders+=("${loader#"$KLIPPER_DIR"/}")
 done
 carto_location="$("$KLIPPY_ENV/bin/pip" show cartographer3d-plugin 2>/dev/null | sed -n 's/^Editable project location: //p')"
+carto_version="$("$KLIPPY_ENV/bin/pip" show cartographer3d-plugin 2>/dev/null | sed -n 's/^Version: //p')"
 if ! "$KLIPPY_ENV/bin/pip" show cartographer3d-plugin >/dev/null 2>&1; then
     info "not installed (optional)"
     (( ${#carto_loaders[@]} )) && bad "a Cartographer loader exists without the package: ${carto_loaders[*]}"
 else
-    if [[ "$carto_location" == "$CARTOGRAPHER_DIR" ]]; then
-        ok "package from the K2-OpenHost fork ($CARTOGRAPHER_DIR)"
+    if [[ "$carto_location" == *k2openhost* ]]; then
+        bad "Cartographer comes from the former K2-OpenHost fork ($carto_location); run scripts/extras.sh cartographer to switch to the official plugin"
+    elif [[ -n "$carto_location" ]]; then
+        warn "Cartographer $carto_version is an editable checkout ($carto_location)"
     else
-        bad "cartographer3d-plugin is not the K2-OpenHost fork (${carto_location:-a regular pip install}); run scripts/extras.sh cartographer"
+        ok "official Cartographer plugin $carto_version"
     fi
     if [[ "${carto_loaders[*]}" == "klippy/plugins/cartographer.py" ]]; then
         ok "loader klippy/plugins/cartographer.py"
