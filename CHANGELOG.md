@@ -12,6 +12,7 @@
   - trial boot that a power cycle undoes, commit, back to slot A.
 
   Slot B runs the USB gadget, one bridge per bus, Wi-Fi, a first-boot HelixScreen install pointed at the host, and keeps its writable layer on UDISK. It never formats, checks or wipes UDISK or slot A's `rootfs_data`.
+- `t113 mcu-fw apply|update` (menu 31) stops Klipper on this host only when its print state is a known idle state, then passes `k2oh-mcu-fw` the proof from `k2oh-host-evidence` that the printer's gadget ports are free (MzTechnology97/k2-openhost-t113-bootstrap#1).
 - `k2oh-mcu-fw` on slot B:
   - lists and downloads Creality firmware releases;
   - keeps only the MCU/motor/CFS files;

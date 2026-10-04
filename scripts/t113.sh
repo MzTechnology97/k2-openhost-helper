@@ -377,13 +377,52 @@ cmd_host() {
     t113_ssh "k2oh-setup --host '$ip'"
 }
 
+idle_print_state() {
+    # Prints the Klipper print state when it is known and idle; fails
+    # otherwise (printing, paused, or no answer: unknown is never idle).
+    local state
+    state="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?print_stats=state' 2>/dev/null \
+        | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"]["status"]["print_stats"]["state"])' 2>/dev/null || true)"
+    case "$state" in
+        standby|complete|cancelled|error) echo "$state" ;;
+        *) return 1 ;;
+    esac
+}
+
+stop_klipper_for_flash() {
+    local service state
+    service="$(systemctl is-active klipper 2>/dev/null || true)"
+    if [[ "$service" == "inactive" || "$service" == "failed" ]]; then
+        ok "Klipper is stopped on this host"
+        return
+    fi
+    state="$(idle_print_state)" \
+        || die "Klipper is $service and its print state is not a known idle state: not stopping it"
+    info "Klipper is $service, print state: $state"
+    confirm "Stop Klipper on this host for the flash?" n || die "Klipper must be stopped before flashing"
+    sudo systemctl stop klipper
+    service="$(systemctl is-active klipper 2>/dev/null || true)"
+    [[ "$service" == "inactive" || "$service" == "failed" ]] || die "Klipper did not stop (it is $service)"
+    ok "Klipper stopped; start it again after the flash: sudo systemctl start klipper"
+}
+
+host_evidence() {
+    # Proof for k2oh-mcu-fw that Klipper is stopped and no process on this
+    # host holds the printer's gadget ports (needs root to see every process).
+    sudo python3 "$T113_DIR/host/k2oh-host-evidence"
+}
+
 cmd_mcu_fw() {
-    connect
     local args="" a
     for a in "$@"; do args+=" $(printf '%q' "$a")"; done
     if [[ "${1:-}" == "apply" || "${1:-}" == "update" ]]; then
-        info "Stop Klipper on this host first: sudo systemctl stop klipper"
-        args+=" --moonraker http://${HOST_IP}:7125"
+        clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
+        connect
+        require_sudo
+        stop_klipper_for_flash
+        args+=" --moonraker http://${HOST_IP}:7125 --host-evidence $(host_evidence)"
+    else
+        connect
     fi
     ssh -t -o ControlMaster=auto -o ControlPath="$SSH_SOCK" -o ControlPersist=15m \
         -o UserKnownHostsFile="$KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new \
