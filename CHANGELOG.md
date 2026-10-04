@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- T113 menu: new read-only **23) Check the printer** (`./helper.sh t113 check`): K2 Pro model, slot, free space, firmware release and the Creality release slot B would use. The other T113 entries move to 24–31. The README has a Printer T113 bootstrap section, and new terminal screenshots of the menu, help, check and `k2oh-mcu-fw update`.
 - The T113 bootstrap moved to its own repository, [k2-openhost-t113-bootstrap](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap) (history kept). The T113 menu clones it to `~/k2-openhost-t113-bootstrap`.
 - The T113 bootstrap builds slot B from the release slot A runs, or a newer one, with a warning: it was prepared and tested on stock 1.1.0.94 only. Menu 30 runs `k2oh-mcu-fw update`: latest Creality release, flash only on confirmation.
 - **T113 bootstrap (slot B), experimental, not yet run on hardware.** Menu 23–29 / `./helper.sh t113 …`:
