@@ -63,7 +63,7 @@ Non serve esperienza con Linux: ogni comando qui sotto si può copiare e incolla
 | Alimentatore | Quello ufficiale della scheda. Una tensione insufficiente provoca disconnessioni casuali. |
 | Cavo USB | Un cavo **dati** da una porta USB dell'host alla porta Micro-USB di servizio della K2. I cavi solo di ricarica non funzionano. |
 | Rete | Ethernet o Wi-Fi, con accesso a Internet durante l'installazione. |
-| La K2 | La sua scheda T113 deve eseguire i tre bridge seriali USB gadget. Vedi [Trasporto USB gadget](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/USB_GADGET.md); un bootstrap automatico del T113 arriverà in questo repository dopo i test hardware. |
+| La K2 | Una **Creality K2 Pro** con firmware originale 1.1.0.94, raggiungibile in rete. La sua scheda T113 deve eseguire i tre bridge seriali USB gadget: la voce **23** del menu li installa nello slot di sistema di riserva della stampante (slot B) insieme a HelixScreen, senza toccare il sistema attuale (slot A). Vedi la [guida al bootstrap del T113](t113/slot-b/README.it.md). |
 | Un altro computer | Windows, macOS o Linux, per preparare la scheda e collegarti all'host. |
 | Fotocamere (opzionale) | La fotocamera dell'ugello e quella della camera non possono funzionare tramite il T113 in modalità OpenHost: ricabla il percorso originale verso porte USB dell'host, poi usa l'opzione Crowsnest. |
 
@@ -153,7 +153,7 @@ Serve ad applicare i permessi sulle porte seriali dati al tuo utente. Ricollegat
 ### 9. Collegare la K2
 
 1. Collega il cavo USB dati tra una porta USB dell'host e la porta Micro-USB di servizio della K2.
-2. Verifica che sulla K2 girino i bridge del T113 (vedi i requisiti).
+2. Esegui la voce **23) Install the T113 bootstrap** (`./helper.sh t113 install`): chiede l'IP della stampante, verifica che sia una K2 Pro, costruisce il sistema dello slot B dal firmware Creality e lo scrive, poi propone l'avvio di prova. Segui la [guida al bootstrap del T113](t113/slot-b/README.it.md).
 3. Klipper parte da solo: a ogni avvio aspetta fino a 60 secondi i tre canali.
 
 ### 10. Controllare l'host
@@ -211,6 +211,13 @@ KAMP non viene installato a parte: è già integrato in Kalico e lo configura `k
 | 19 | Serial names | Passa `printer.cfg` e l'attesa all'avvio ai nomi `/dev/k2-*`, indipendenti dall'ordine USB. |
 | 20 / 21 | Backup / Restore | Archivia o ripristina configurazione, libreria filamenti e stato CFS. |
 | 22 | Restart | Riavvia Klipper e Moonraker. Rifiutato durante una stampa. |
+| 23 | Install the T113 bootstrap | Chiede l'IP della stampante e conferma quello dell'host, verifica via SSH che sia una K2 Pro con firmware originale 1.1.0.94, costruisce lo slot B dall'OTA Creality, aggiunge HelixScreen, scrive lo slot B (slot A non toccato) e propone l'avvio di prova. |
+| 24 | T113 status | Slot attivo, prossimo avvio, prova in corso, setup del primo avvio, HelixScreen. |
+| 25 | Trial boot slot B | Avvia lo slot B una volta; spegnendo e riaccendendo si torna allo slot A. |
+| 26 | Keep slot B | Rende lo slot B quello predefinito (da eseguire su uno slot B funzionante). |
+| 27 | Boot slot A | Torna al sistema originale della stampante. |
+| 28 | Change the host address | Aggiorna l'host usato da HelixScreen e da `k2oh-mcu-fw` sulla stampante. |
+| 29 | MCU firmware status | Versioni delle schede sulla stampante. Gli aggiornamenti sono manuali: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (vedi la guida). |
 
 Le voci già installate mostrano `[installed]`. Se un passaggio fallisce, il menu mostra l'errore e resta aperto.
 
@@ -299,7 +306,7 @@ Quando chiedi aiuto, allega l'output di `./helper.sh doctor` e `~/printer_data/l
 ## Roadmap
 
 - Test completo dell'installazione su un'immagine Raspberry Pi OS pulita.
-- Bootstrap del T113 sulla scheda K2 originale: disattivazione dei servizi Creality inutili, installazione di HelixScreen e avvio di USB gadget e bridge a ogni accensione.
+- Validazione su hardware del bootstrap del T113 (slot B), del suo avvio di prova e di `k2oh-mcu-fw apply`.
 
 ## Crediti
 
