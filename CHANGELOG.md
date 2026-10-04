@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- nginx drops the placeholder `X-Api-Key: 88888888` that OrcaSlicer 2.4.2 sends to Moonraker, so its filament Sync and uploads work with trusted LAN clients.
 - Cartographer3D now comes from the official plugin (pip package, Moonraker `type: python` updater). The former K2-OpenHost fork is migrated automatically and was retired: the official plugin supports Kalico and the K2 directly.
 
 ## 0.1.0 — 2026-10-03 (experimental, pending hardware tests)

@@ -37,6 +37,8 @@ install_nginx() {
     apt_install nginx
     sudo_render "${FILES_DIR}/nginx/upstreams.conf" /etc/nginx/conf.d/upstreams.conf
     sudo_render "${FILES_DIR}/nginx/common_vars.conf" /etc/nginx/conf.d/common_vars.conf
+    # OrcaSlicer 2.4.2 placeholder API key (see the file for details).
+    sudo_render "${FILES_DIR}/nginx/k2openhost-orca-api-key.conf" /etc/nginx/conf.d/k2openhost-orca-api-key.conf
     sudo_render "${FILES_DIR}/nginx/mainsail" /etc/nginx/sites-available/mainsail
     sudo ln -sf /etc/nginx/sites-available/mainsail /etc/nginx/sites-enabled/mainsail
     if [[ -L /etc/nginx/sites-enabled/default ]]; then
