@@ -168,6 +168,8 @@ Every line should be green. Red `✘` lines say what is wrong and how to fix it;
 
 In your browser open `http://k2host.local/` (or `http://<ip-address>/`). The dashboard shows the CFS panel, the live filament path and the printer state. The [Mainsail K2-OpenHost guide](https://github.com/MzTechnology97/mainsail-k2openhost/blob/develop/docs/K2_CFS.md) explains every CFS feature, including the filament library and how to add your own filaments.
 
+To send prints from the official OrcaSlicer with the CFS slots already in its filament list, see [OrcaSlicer and the CFS](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/ORCASLICER.md).
+
 Before printing, follow the checks in the [hardware test plan](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/HARDWARE_TEST_PLAN.md): homing, heaters and a first supervised print.
 
 ## What gets installed
