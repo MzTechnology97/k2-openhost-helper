@@ -226,6 +226,7 @@ KAMP is not installed separately: Kalico already includes it, and the K2 profile
 | 29 | Change the host address | Updates the host used by HelixScreen and `k2oh-mcu-fw` on the printer. |
 | 30 | MCU firmware status | Board versions on the printer and the firmware files slot B would flash. |
 | 31 | Update MCU firmware | Downloads the latest Creality release, stages it, shows what changes and flashes only if you confirm. When the printer is idle it offers to stop Klipper on this host, then passes the printer a proof that the gadget ports are free (`sudo` is needed); unknown states block. Step by step: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
+| 32 | Link the T113 controls | Connects this host to `k2oh-ctl` on slot B. It copies the shared token to `~/printer_data/config/k2oh_t113.token`, sets `host` in `k2_t113.cfg` and writes the Moonraker power device `K2_MCU_Power` (`moonraker_k2_t113.conf`). It turns `[include k2_t113.cfg]` on only when the installed Kalico has the module. The install offers it too. |
 
 Entries already installed show `[installed]`. If a step fails, the menu shows the error and stays open.
 
@@ -256,6 +257,14 @@ The printer's own T113 board runs the USB gadget bridges to this host. The boots
 `apply --cfs` includes the CFS units. This is an example run on slot B, answering no:
 
 <img src="docs/images/cli-t113-mcu-fw-update.png" alt="k2oh-mcu-fw update" width="760">
+
+**5. T113 control service** (menu 32, `./helper.sh t113 link`): connects Kalico and Moonraker to `k2oh-ctl` on the printer:
+- the buzzer: `T113_BEEP`, `M300`, and the external RFID beep;
+- T113 telemetry: `T113_STATUS`;
+- bridge and HelixScreen restarts;
+- the MCU power rail: the Moonraker power device `K2_MCU_Power`, locked while printing, and `T113_MCU_POWER_CYCLE CONFIRM=1`.
+
+Restart Moonraker and Klipper afterwards (menu 22).
 
 ## Command line
 

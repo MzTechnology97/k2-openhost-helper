@@ -11,6 +11,7 @@ PROFILE_FILES=(
     macros.cfg
     start_print.cfg
     motor_control.cfg
+    k2_t113.cfg
     prtouch.cfg
     kamp.cfg
     timelapse.cfg
