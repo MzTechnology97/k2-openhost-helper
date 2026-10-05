@@ -40,6 +40,10 @@ install_kalico() {
     # Wait for the three gadget channels before Klipper starts (external host
     # can boot faster than the T113 bridges).
     sudo "$KLIPPER_DIR/scripts/install-k2-openhost-systemd-gate.sh" >/dev/null
+    # Wait for the stable by-id names printer.cfg uses (older gate scripts
+    # wrote /dev/ttyUSB0/1/2).
+    local dropin=/etc/systemd/system/klipper.service.d/k2-openhost-transport.conf
+    [[ -f "$dropin" ]] && sudo sed -i "s#^Environment=\"K2_OPENHOST_TRANSPORT_DEVICES=.*#Environment=\"K2_OPENHOST_TRANSPORT_DEVICES=${K2_MAIN_TTY} ${K2_NOZZLE_TTY} ${K2_RS485_TTY}\"#" "$dropin"
     sudo systemctl daemon-reload
     sudo systemctl enable klipper >/dev/null 2>&1
     ok "klipper.service enabled, waits up to 60 s for ${K2_MAIN_TTY} ${K2_NOZZLE_TTY} ${K2_RS485_TTY}"
