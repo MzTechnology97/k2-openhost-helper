@@ -52,10 +52,10 @@ install_config() {
     fi
 
     step "Serial paths"
-    info "printer.cfg uses ${K2_MAIN_TTY} (Main MCU), ${K2_NOZZLE_TTY} (Nozzle MCU) and ${K2_RS485_TTY} (RS-485/CFS),"
-    info "the order the T113 gadget enumerates on a host with no other USB serial adapters."
-    info "The udev names /dev/k2-main, /dev/k2-nozzle and /dev/k2-rs485 always point to the right channel;"
-    info "'$0 serial-names' switches printer.cfg to them."
+    info "printer.cfg names the T113 gadget channels by interface (by-id): Main MCU if00,"
+    info "Nozzle MCU if01, RS-485/CFS if02. They stay right when the gadget reconnects."
+    info "An older printer.cfg with /dev/ttyUSB0/1/2: '$0 serial-names' converts it"
+    info "('$0 serial-names --udev' uses /dev/k2-main, /dev/k2-nozzle, /dev/k2-rs485 instead)."
     mark_installed config
 }
 
@@ -74,22 +74,50 @@ diff_config() {
     (( any )) || ok "your configuration matches the profile"
 }
 
-serial_names() {
-    local cfg="$CONFIG_DIR/printer.cfg"
-    [[ -f "$cfg" ]] || die "$cfg not found"
-    step "Switching printer.cfg to the udev names"
-    backup_file "$cfg"
-    sed -i -E \
-        -e "s#^(serial:[[:space:]]*)${K2_MAIN_TTY}\b#\1/dev/k2-main#" \
-        -e "s#^(serial:[[:space:]]*)${K2_NOZZLE_TTY}\b#\1/dev/k2-nozzle#" \
-        -e "s#^(serial:[[:space:]]*)${K2_RS485_TTY}\b#\1/dev/k2-rs485#" \
-        "$cfg"
-    # Keep the Klipper start gate in step with the new names.
+# Set the serial line of [mcu], [mcu nozzle_mcu] and [serial_485 ...] by
+# section, whatever value they had; a trailing comment is kept.
+set_serial_lines() {
+    local cfg="$1" main="$2" nozzle="$3" rs485="$4"
+    awk -v main="$main" -v noz="$nozzle" -v rs="$rs485" '
+        { cr = ""; if (sub(/\r$/, "")) cr = "\r" }  # keep CRLF files CRLF
+        /^\[/ { sec = $0; sub(/[[:space:]]+$/, "", sec) }
+        /^serial:/ {
+            target = ""
+            if (sec == "[mcu]") target = main
+            else if (sec == "[mcu nozzle_mcu]") target = noz
+            else if (sec ~ /^\[serial_485/) target = rs
+            if (target != "") {
+                rest = $0
+                sub(/^serial:[[:space:]]*[^[:space:]#]*/, "", rest)
+                print "serial: " target rest cr
+                next
+            }
+        }
+        { print $0 cr }
+    ' "$cfg" > "$cfg.k2oh-tmp" && mv "$cfg.k2oh-tmp" "$cfg"
+}
+
+# Keep the Klipper start gate waiting for the same names printer.cfg uses.
+set_gate_devices() {
     local dropin=/etc/systemd/system/klipper.service.d/k2-openhost-transport.conf
-    if [[ -f "$dropin" ]]; then
-        sudo sed -i 's#^Environment="K2_OPENHOST_TRANSPORT_DEVICES=.*#Environment="K2_OPENHOST_TRANSPORT_DEVICES=/dev/k2-main /dev/k2-nozzle /dev/k2-rs485"#' "$dropin"
-        sudo systemctl daemon-reload
+    [[ -f "$dropin" ]] || return 0
+    sudo sed -i "s#^Environment=\"K2_OPENHOST_TRANSPORT_DEVICES=.*#Environment=\"K2_OPENHOST_TRANSPORT_DEVICES=$1 $2 $3\"#" "$dropin"
+    sudo systemctl daemon-reload
+}
+
+serial_names() {
+    local cfg="$CONFIG_DIR/printer.cfg" main nozzle rs485
+    [[ -f "$cfg" ]] || die "$cfg not found"
+    if [[ "${1:-}" == "--udev" ]]; then
+        main=/dev/k2-main nozzle=/dev/k2-nozzle rs485=/dev/k2-rs485
+        step "Switching printer.cfg to the udev names (/dev/k2-*)"
+    else
+        main="$K2_MAIN_TTY" nozzle="$K2_NOZZLE_TTY" rs485="$K2_RS485_TTY"
+        step "Switching printer.cfg to the by-id names"
     fi
+    backup_file "$cfg"
+    set_serial_lines "$cfg" "$main" "$nozzle" "$rs485"
+    set_gate_devices "$main" "$nozzle" "$rs485"
     grep -nE '^serial:' "$cfg" | sed 's/^/    /'
     ok "restart Klipper to apply"
 }
@@ -97,6 +125,6 @@ serial_names() {
 case "${1:-install}" in
     install) install_config "${2:-}" ;;
     diff) diff_config ;;
-    serial-names) serial_names ;;
-    *) die "usage: $0 install [--force]|diff|serial-names" ;;
+    serial-names) serial_names "${2:-}" ;;
+    *) die "usage: $0 install [--force]|diff|serial-names [--udev]" ;;
 esac
