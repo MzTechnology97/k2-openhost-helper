@@ -38,12 +38,16 @@ TIMELAPSE_DIR="${TIMELAPSE_DIR:-${HOME}/moonraker-timelapse}"
 CROWSNEST_REPO="${CROWSNEST_REPO:-https://github.com/mainsail-crew/crowsnest.git}"
 CROWSNEST_DIR="${CROWSNEST_DIR:-${HOME}/crowsnest}"
 
-# The three T113 USB gadget serial channels (USB_GADGET.md in K2-OpenHost).
+# The three T113 USB gadget serial channels (USB_GADGET.md in K2-OpenHost),
+# by interface number. /dev/ttyUSB0/1/2 come from enumeration order: when the
+# gadget reconnects while Klipper still holds the old ports they come back as
+# ttyUSB2/3/4 and FIRMWARE_RESTART cannot reconnect (measured, USB_BRIDGE.md).
 GADGET_VENDOR="0525"
 GADGET_PRODUCT="a4a6"
-K2_MAIN_TTY="${K2_MAIN_TTY:-/dev/ttyUSB0}"
-K2_NOZZLE_TTY="${K2_NOZZLE_TTY:-/dev/ttyUSB1}"
-K2_RS485_TTY="${K2_RS485_TTY:-/dev/ttyUSB2}"
+K2_BY_ID="/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial"
+K2_MAIN_TTY="${K2_MAIN_TTY:-${K2_BY_ID}-if00-port0}"
+K2_NOZZLE_TTY="${K2_NOZZLE_TTY:-${K2_BY_ID}-if01-port0}"
+K2_RS485_TTY="${K2_RS485_TTY:-${K2_BY_ID}-if02-port0}"
 
 ASSUME_YES="${ASSUME_YES:-0}"
 
