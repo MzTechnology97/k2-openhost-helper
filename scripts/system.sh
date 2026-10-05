@@ -4,6 +4,41 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
+# Left by the retired Cartographer MUX experiment. The demux opened the RS-485
+# gadget channel (/dev/ttyUSB2) next to Klipper and stole the CFS and motor
+# replies. Cartographer now uses direct USB on the host.
+LEGACY_DEMUX_UNIT="k2-openhost-demux.service"
+LEGACY_DEMUX_FILES=(/usr/local/libexec/k2-openhost/demux.py)
+
+retire_legacy_demux() {
+    local file unit_file found=() backup
+    unit_file="$(systemctl show -P FragmentPath "$LEGACY_DEMUX_UNIT" 2>/dev/null || true)"
+    [[ -n "$unit_file" && -f "$unit_file" ]] && found+=("$unit_file")
+    for file in "${LEGACY_DEMUX_FILES[@]}"; do
+        [[ -e "$file" ]] && found+=("$file")
+    done
+    if (( ${#found[@]} == 0 )); then
+        ok "no Cartographer MUX demux left on this host"
+        return 0
+    fi
+    warn "the retired Cartographer MUX demux is still here: ${found[*]}"
+    info "it reads the RS-485 channel next to Klipper and steals the CFS and motor replies"
+    confirm "Stop it and move its files to $PRINTER_DATA/backup?" y || return 0
+    backup="$PRINTER_DATA/backup/legacy-demux-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$backup"
+    sudo systemctl disable --now "$LEGACY_DEMUX_UNIT" >/dev/null 2>&1 || true
+    for file in "${found[@]}"; do
+        sudo mv "$file" "$backup/"
+    done
+    sudo chown -R "$(id -un):" "$backup"
+    sudo systemctl daemon-reload
+    sudo systemctl reset-failed "$LEGACY_DEMUX_UNIT" >/dev/null 2>&1 || true
+    ok "demux stopped and removed; its files are in $backup"
+    systemctl is-active --quiet klipper 2>/dev/null \
+        && info "restart Klipper when it is idle so it reconnects the RS-485 channel"
+    return 0
+}
+
 install_system() {
     step "Preparing the host ($(os_summary))"
     apt_install git curl unzip ca-certificates python3 python3-venv python3-dev \
@@ -37,6 +72,7 @@ install_system() {
             ok "ModemManager masked and stopped"
         fi
     fi
+    retire_legacy_demux
     if dpkg -s brltty >/dev/null 2>&1; then
         if confirm "Remove brltty (it claims USB serial devices)?" y; then
             sudo apt-get remove -y -qq brltty
@@ -92,5 +128,6 @@ remove_system() {
 case "${1:-install}" in
     install) install_system ;;
     remove) remove_system ;;
-    *) die "usage: $0 install|remove" ;;
+    retire-demux) retire_legacy_demux ;;
+    *) die "usage: $0 install|remove|retire-demux" ;;
 esac

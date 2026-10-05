@@ -307,11 +307,11 @@ Per convertire un `printer.cfg` più vecchio: il menu 19 (`./helper.sh config se
 | Sezione | Cosa controlla |
 | --- | --- |
 | Host | Sistema operativo, gruppi seriali del tuo utente, ModemManager. |
-| T113 USB gadget | Il gadget della K2 è collegato e ogni canale (Main MCU, Nozzle MCU, RS-485/CFS) corrisponde al dispositivo usato in `printer.cfg`. |
+| T113 USB gadget | Il gadget della K2 è collegato, ogni canale (Main MCU, Nozzle MCU, RS-485/CFS) corrisponde al dispositivo usato in `printer.cfg` e nessun altro processo usa i canali. |
 | Services | Klipper, Moonraker e nginx attivi, più i servizi opzionali; l'attesa all'avvio di Klipper è installata. |
 | Software | Repository, ramo e commit di Kalico; versione di Mainsail installata. |
 | Cartographer | È installato il plugin ufficiale (non il vecchio fork K2-OpenHost) ed esiste un solo loader. |
-| Klipper and the CFS | Stato di Klipper, driver e modalità del CFS, file della libreria filamenti. |
+| Klipper and the CFS | Stato di Klipper, driver e modalità del CFS, file della libreria filamenti, stato del collegamento RS-485. |
 
 L'esempio qui sopra è stato preso sulla macchina di riferimento: segnala ModemManager in esecuzione e Crowsnest installato ma fermo.
 
@@ -339,6 +339,8 @@ Gli aggiornamenti vengono rifiutati durante una stampa in corso o in pausa.
 | doctor: `ModemManager is running` | `sudo systemctl stop ModemManager`, oppure rilancia il menu 3. |
 | doctor: `the K2 gadget (0525:a4a6) is not connected` | Verifica che il cavo sia un cavo dati e sia nella porta Micro-USB **di servizio** della K2; verifica che girino i bridge del T113; `lsusb` deve mostrare *Linux-USB Serial Gadget*. |
 | doctor: `interface .. is /dev/ttyUSBx but printer.cfg uses ...` | Usa il menu 19 (nomi seriali stabili), poi riavvia Klipper. |
+| doctor: `process … also uses /dev/ttyUSBx` oppure `retired Cartographer MUX demux` | Un secondo lettore prende byte destinati a Klipper; sul canale RS-485 il CFS e i motori smettono di rispondere. Ferma quel processo. Per il vecchio demux lancia `scripts/system.sh retire-demux` (lo propone anche il menu 3), poi riavvia Klipper. |
+| doctor: `RS-485 link LOST` | Klipper non riceve risposte RS-485. Cerca altri lettori (riga sopra), verifica che giri il bridge RS-485 del T113 e che il CFS sia alimentato. |
 | Mainsail mostra *mcu 'mcu': Unable to connect* | Stesse verifiche del gadget. Klipper riprova da solo; *Firmware restart* in Mainsail riprova subito. |
 | Klipper non attivo | `journalctl -u klipper -e` e `~/printer_data/logs/klippy.log` mostrano il motivo. |
 | Il browser mostra *403 Forbidden* | Lancia `chmod o+x ~` e ricarica, oppure rilancia il menu 7. |

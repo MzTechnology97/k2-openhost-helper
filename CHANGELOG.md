@@ -6,6 +6,8 @@
   - the Kalico profile's `printer.cfg` uses them (kalico-k2pro#20), and the Klipper start gate waits for the same names;
   - why: with `/dev/ttyUSB0/1/2`, a gadget reconnect while Klipper held the old ports renumbered them to `ttyUSB2/3/4` and `FIRMWARE_RESTART` could not reconnect (K2-OpenHost USB_BRIDGE failure tests);
   - menu 19 (`config serial-names`) now converts an older `printer.cfg` by section, whatever its old values, keeping comments and CRLF; `--udev` selects `/dev/k2-*` instead.
+- doctor: flags any other process that uses a K2 gadget channel and the retired Cartographer MUX demux (`k2-openhost-demux`), and shows the RS-485 link state from Klipper. A second reader on the RS-485 channel steals the CFS and motor replies: it happened after a host reboot, with the demux started by hand.
+- Host preparation (menu 3) and `scripts/system.sh retire-demux` stop the old demux and move its unit and script to `~/printer_data/backup`.
 - T113 menu: new read-only **23) Check the printer** (`./helper.sh t113 check`): K2 Pro model, slot, free space, firmware release and the Creality release slot B would use. The other T113 entries move to 24–31. The README has a Printer T113 bootstrap section, and new terminal screenshots of the menu, help, check and `k2oh-mcu-fw update`.
 - The T113 bootstrap moved to its own repository, [k2-openhost-t113-bootstrap](https://github.com/MzTechnology97/k2-openhost-t113-bootstrap) (history kept). The T113 menu clones it to `~/k2-openhost-t113-bootstrap`.
 - The T113 bootstrap builds slot B from the release slot A runs, or a newer one, with a warning: it was prepared and tested on stock 1.1.0.94 only. Menu 30 runs `k2oh-mcu-fw update`: latest Creality release, flash only on confirmation.
