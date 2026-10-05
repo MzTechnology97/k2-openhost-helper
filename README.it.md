@@ -15,9 +15,9 @@ Dallo stesso menu prepara anche la stampante: il **bootstrap del T113** scrive u
 
 ```text
 Scheda madre Creality K2 Pro (T113)             Host Linux esterno (questo installer)
-  Main MCU   ttyS2 ── ttyGS0 ─┐                  ┌── /dev/ttyUSB0 = /dev/k2-main
-  Nozzle MCU ttyS3 ── ttyGS1 ─┼── USB servizio ──┼── /dev/ttyUSB1 = /dev/k2-nozzle
-  RS-485/CFS ttyS5 ── ttyGS2 ─┘                  └── /dev/ttyUSB2 = /dev/k2-rs485
+  Main MCU   ttyS2 ── ttyGS0 ─┐                  ┌── by-id …-if00-port0 (/dev/k2-main)
+  Nozzle MCU ttyS3 ── ttyGS1 ─┼── USB servizio ──┼── by-id …-if01-port0 (/dev/k2-nozzle)
+  RS-485/CFS ttyS5 ── ttyGS2 ─┘                  └── by-id …-if02-port0 (/dev/k2-rs485)
                                                      Kalico · Moonraker · Mainsail
   Cartographer3D (opzionale) ───────── USB diretta ─> /dev/k2-cartographer
 ```
@@ -290,7 +290,13 @@ Le tue modifiche non vengono mai sovrascritte. Quando un file del profilo è sta
 
 <img src="docs/images/cli-config-diff.png" alt="Differenze di configurazione" width="760">
 
-**Percorsi seriali.** `printer.cfg` usa `/dev/ttyUSB0` (Main MCU), `/dev/ttyUSB1` (Nozzle MCU) e `/dev/ttyUSB2` (RS-485/CFS), l'ordine in cui compaiono i canali gadget su un host senza altri adattatori seriali USB. Se aggiungi altri dispositivi seriali USB, usa il menu 19 per passare a `/dev/k2-main`, `/dev/k2-nozzle` e `/dev/k2-rs485`, che puntano sempre al canale giusto.
+**Percorsi seriali.** `printer.cfg` indica i canali del gadget per interfaccia: `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` (Main MCU), `if01` (Nozzle MCU) e `if02` (RS-485/CFS). Il gate di avvio di Klipper attende gli stessi nomi.
+
+Perché non `/dev/ttyUSB0/1/2`: i loro numeri seguono l'ordine di enumerazione. Nei [test di guasto del bridge USB](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/USB_BRIDGE.md#test-di-guasto) il gadget si è riconnesso mentre Klipper teneva ancora le vecchie porte, e i canali sono tornati come `ttyUSB2/3/4`.
+- Con i nomi `ttyUSBn`, `FIRMWARE_RESTART` non riusciva a ricollegarsi.
+- Con i nomi by-id, sì.
+
+Per convertire un `printer.cfg` più vecchio: il menu 19 (`./helper.sh config serial-names`) imposta le tre righe `serial:` per sezione. `config.sh serial-names --udev` usa invece `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485`, anch'essi stabili.
 
 ## Controllo dell'host (doctor)
 
@@ -332,7 +338,7 @@ Gli aggiornamenti vengono rifiutati durante una stampa in corso o in pausa.
 | doctor: `not in group dialout` / `tty` | Riavvia l'host (`sudo reboot`) oppure esci e rientra. |
 | doctor: `ModemManager is running` | `sudo systemctl stop ModemManager`, oppure rilancia il menu 3. |
 | doctor: `the K2 gadget (0525:a4a6) is not connected` | Verifica che il cavo sia un cavo dati e sia nella porta Micro-USB **di servizio** della K2; verifica che girino i bridge del T113; `lsusb` deve mostrare *Linux-USB Serial Gadget*. |
-| doctor: `interface .. is /dev/ttyUSBx but printer.cfg uses ...` | Usa il menu 19 (nomi seriali), poi riavvia Klipper. |
+| doctor: `interface .. is /dev/ttyUSBx but printer.cfg uses ...` | Usa il menu 19 (nomi seriali stabili), poi riavvia Klipper. |
 | Mainsail mostra *mcu 'mcu': Unable to connect* | Stesse verifiche del gadget. Klipper riprova da solo; *Firmware restart* in Mainsail riprova subito. |
 | Klipper non attivo | `journalctl -u klipper -e` e `~/printer_data/logs/klippy.log` mostrano il motivo. |
 | Il browser mostra *403 Forbidden* | Lancia `chmod o+x ~` e ricarica, oppure rilancia il menu 7. |
