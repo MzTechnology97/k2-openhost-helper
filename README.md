@@ -307,13 +307,28 @@ To convert an older `printer.cfg`: menu 19 (`./helper.sh config serial-names`) s
 | Section | What it checks |
 | --- | --- |
 | Host | Operating system, serial groups of your user, ModemManager. |
-| T113 USB gadget | The K2 gadget is connected, each channel (Main MCU, Nozzle MCU, RS-485/CFS) matches the device used in `printer.cfg`, and no other process uses the channels. |
+| T113 USB gadget | The K2 gadget is connected, each channel (Main MCU, Nozzle MCU, RS-485/CFS) matches the device used in `printer.cfg`, no other process uses the channels, and the usbserial binding persists across reboots. |
 | Services | Klipper, Moonraker and nginx are running, plus optional services; the Klipper start gate is installed. |
 | Software | Kalico repository, branch and commit; installed Mainsail version. |
 | Cartographer | The official plugin is installed (not the former K2-OpenHost fork) and exactly one loader exists. |
-| Klipper and the CFS | Klipper state, CFS Box driver and mode, filament library file, RS-485 link state. |
+| Klipper and the CFS | Klipper state, CFS Box driver and mode, CFS units online, closed-loop motors ready, filament library file, RS-485 link state. |
 
 The example above was taken on the reference machine: it reports a running ModemManager and an installed but stopped Crowsnest.
+
+### Automatic check after boots and updates
+
+Menu 3 (`scripts/system.sh install`, or `scripts/system.sh health-install` on its own) installs a check that runs by itself:
+
+- **at every boot** (`k2oh-health@boot.service`): it waits up to 4 minutes for Klipper and the motor startup, then runs the doctor;
+- **after every apt/dpkg change** (`/etc/apt/apt.conf.d/99k2openhost-health` starts `k2oh-health@apt.service` without blocking apt). It also says when a reboot is pending, and fails if the newest installed kernel has no `usbserial` module, because the T113 channels would not come back after the reboot.
+
+The result:
+
+- appears in the **Klipper console** in Mainsail (`K2-OpenHost check after boot: OK.`, or the problems in red);
+- is kept in `printer_data/logs/k2oh-health.log`;
+- with `K2OH_HEALTH_NOTIFY_CMD="..."` in `printer_data/systemd/k2oh-health.env`, your own command (Telegram, apprise, mail) receives the summary as its argument.
+
+The check changes nothing. Run it by hand with `./helper.sh health`; `scripts/system.sh health-remove` removes it.
 
 ## Updates
 

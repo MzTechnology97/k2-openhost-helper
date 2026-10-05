@@ -39,6 +39,23 @@ retire_legacy_demux() {
     return 0
 }
 
+install_health() {
+    step "Automatic check after boots and updates"
+    sudo_render "${FILES_DIR}/systemd/k2oh-health@.service"         /etc/systemd/system/k2oh-health@.service
+    sudo_render "${FILES_DIR}/apt/99k2openhost-health"         /etc/apt/apt.conf.d/99k2openhost-health
+    sudo systemctl daemon-reload
+    sudo systemctl enable k2oh-health@boot.service >/dev/null 2>&1
+    ok "checked at every boot and after apt upgrades; results in the Klipper console and ${LOGS_DIR}/k2oh-health.log"
+    info "optional notification: K2OH_HEALTH_NOTIFY_CMD=\"...\" in ${SYSTEMD_ENV_DIR}/k2oh-health.env (gets the summary as \$1)"
+}
+
+remove_health() {
+    sudo systemctl disable k2oh-health@boot.service >/dev/null 2>&1 || true
+    sudo rm -f /etc/systemd/system/k2oh-health@.service         /etc/apt/apt.conf.d/99k2openhost-health
+    sudo systemctl daemon-reload
+    ok "automatic check removed"
+}
+
 install_system() {
     step "Preparing the host ($(os_summary))"
     apt_install git curl unzip ca-certificates python3 python3-venv python3-dev \
@@ -109,6 +126,7 @@ install_system() {
     step "printer_data layout"
     mkdir -p "$CONFIG_DIR" "$LOGS_DIR" "$GCODES_DIR" "$COMMS_DIR" "$SYSTEMD_ENV_DIR" "$PRINTER_DATA/certs" "$PRINTER_DATA/backup"
     ok "$PRINTER_DATA"
+    install_health
     mark_installed system
 }
 
@@ -121,6 +139,7 @@ remove_system() {
     # the printer itself may still be using it. The binding disappears on the
     # next reboot once the persistent files above are gone.
     sudo udevadm control --reload-rules
+    remove_health
     mark_removed system
     ok "removed (loaded serial drivers, packages, groups and printer_data are kept)"
 }
@@ -129,5 +148,7 @@ case "${1:-install}" in
     install) install_system ;;
     remove) remove_system ;;
     retire-demux) retire_legacy_demux ;;
-    *) die "usage: $0 install|remove|retire-demux" ;;
+    health-install) install_health ;;
+    health-remove) remove_health ;;
+    *) die "usage: $0 install|remove|retire-demux|health-install|health-remove" ;;
 esac

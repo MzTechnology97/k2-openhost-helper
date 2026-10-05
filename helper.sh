@@ -168,6 +168,8 @@ Usage: ./helper.sh [--yes] [command]
                       hostmcu | spoolman | mobileraker | octoeverywhere
   update              Kalico, Moonraker and Mainsail
   doctor              read-only health check
+  health              doctor + report to the Klipper console (also runs by itself
+                      at every boot and after apt upgrades)
   config diff         compare your config with the K2 profile
   backup | restore    configuration backups in ${BACKUP_DIR}
   t113 <command>      printer T113 bootstrap: check | install | status | boot-b |
@@ -203,6 +205,7 @@ main() {
             esac ;;
         update) require_sudo; run kalico.sh update; run moonraker.sh update; run mainsail.sh update ;;
         doctor) run doctor.sh ;;
+        health) run health.sh manual ;;
         config) run config.sh "${2:-diff}" "${3:-}" ;;
         backup) run backup.sh backup ;;
         restore) require_sudo; run backup.sh restore ;;

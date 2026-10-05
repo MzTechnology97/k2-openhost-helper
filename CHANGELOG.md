@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Automatic check after boots and updates.** `k2oh-health@boot.service` and an apt hook (`k2oh-health@apt.service`) run the doctor and report in the Klipper console, in `printer_data/logs/k2oh-health.log`, and optionally through `K2OH_HEALTH_NOTIFY_CMD`.
+  - After apt it also flags a pending reboot, and fails when the newest kernel has no `usbserial`.
+  - Installed by `scripts/system.sh install` (menu 3) or `health-install`; `./helper.sh health` runs it by hand.
+- The doctor also checks the persistent usbserial binding, the CFS units online and the closed-loop motor startup.
 - **Stable serial names by default.** Main, Nozzle and RS-485 are now addressed as `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00/01/02-port0`:
   - the Kalico profile's `printer.cfg` uses them (kalico-k2pro#20), and the Klipper start gate waits for the same names;
   - why: with `/dev/ttyUSB0/1/2`, a gadget reconnect while Klipper held the old ports renumbered them to `ttyUSB2/3/4` and `FIRMWARE_RESTART` could not reconnect (K2-OpenHost USB_BRIDGE failure tests);

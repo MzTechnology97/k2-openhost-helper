@@ -88,6 +88,14 @@ for proc in /proc/[0-9]*; do
 done
 (( readers )) || ok "no other process uses the K2 channels"
 
+for persist in /etc/modprobe.d/k2-openhost-gadget-serial.conf /etc/modules-load.d/k2-openhost-gadget-serial.conf; do
+    if [[ -f "$persist" ]]; then
+        ok "usbserial binding persists: $persist"
+    else
+        bad "$persist is missing: after a reboot the T113 channels may not appear ('scripts/system.sh install' adds it)"
+    fi
+done
+
 step "Services"
 for service in klipper moonraker nginx; do
     if systemctl is-active --quiet "$service"; then
@@ -167,6 +175,40 @@ if lib:
         lib.get("path"), lib.get("custom_count"), lib.get("system_count"),
         "  ERROR: " + lib["error"] if lib.get("error") else ""))
 ' <<<"$box" 2>/dev/null || warn "box object not available"
+    units="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?box=boxes,driver_ready' 2>/dev/null | python3 -c '
+import json, sys
+box = json.load(sys.stdin)["result"]["status"].get("box")
+if box is None:
+    raise SystemExit
+boxes = box.get("boxes") or []
+print("%d %d" % (sum(1 for b in boxes if b.get("online")), len(boxes)))
+' 2>/dev/null || true)"
+    if [[ -n "$units" ]]; then
+        read -r online known <<<"$units"
+        if (( online > 0 )); then
+            ok "CFS: $online unit(s) online"
+        else
+            bad "CFS: no unit online (RS-485 down at startup? Kalico retries discovery on its own)"
+        fi
+    fi
+    motors="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?motor_control=motor_ready,startup' 2>/dev/null | python3 -c '
+import json, sys
+s = json.load(sys.stdin)["result"]["status"].get("motor_control")
+if s is None:
+    raise SystemExit
+startup = s.get("startup") or {}
+if s.get("motor_ready"):
+    print("ready")
+elif not startup.get("complete"):
+    print("starting")
+else:
+    print("failed " + (startup.get("error") or "unknown error"))
+' 2>/dev/null || true)"
+    case "$motors" in
+        ready) ok "closed-loop motors ready" ;;
+        starting) warn "closed-loop motors still starting" ;;
+        failed\ *) bad "closed-loop motors NOT ready: ${motors#failed }" ;;
+    esac
     objects="$(curl -fsS --max-time 3 http://127.0.0.1:7125/printer/objects/list 2>/dev/null || true)"
     while IFS= read -r object; do
         [[ -n "$object" ]] || continue

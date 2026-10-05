@@ -1,0 +1,4 @@
+// Installed by k2-openhost-installer-helper: check the K2-OpenHost host after
+// every package change. Non-blocking; the result goes to the Klipper console
+// and printer_data/logs/k2oh-health.log.
+DPkg::Post-Invoke { "if [ -d /run/systemd/system ]; then systemctl start --no-block k2oh-health@apt.service >/dev/null 2>&1 || true; fi"; };
