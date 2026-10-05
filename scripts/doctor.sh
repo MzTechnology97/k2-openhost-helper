@@ -51,6 +51,42 @@ for num in 00 01 02; do
         bad "interface ${num} (${expected[$num]}) is $dev but printer.cfg uses $configured ('scripts/config.sh serial-names' fixes this)"
     fi
 done
+# Klipper must be the only reader of each channel: a second reader steals
+# bytes. The retired Cartographer MUX demux did this to RS-485. Processes of
+# this user are checked by their open files; the others (root) only by the
+# device named on their command line, because their files need root to read.
+if service_exists k2-openhost-demux; then
+    bad "the retired Cartographer MUX demux (k2-openhost-demux) is installed; 'scripts/system.sh retire-demux' removes it"
+fi
+channels=()
+for link in /dev/serial/by-id/*Gadget_Serial-if0[0-2]-port0; do
+    [[ -e "$link" ]] && channels+=("$(readlink -f "$link")")
+done
+channel_re='/dev/(ttyUSB[0-9]+|serial/by-id/[^ ]*Gadget_Serial[^ ]*|k2-(main|nozzle|rs485))'
+shell_re='(^|/)(ba|da|a|z)?sh$'
+readers=0
+for proc in /proc/[0-9]*; do
+    pid="${proc#/proc/}"
+    [[ "$pid" == "$$" ]] && continue
+    cmd="$(tr '\0' ' ' <"$proc/cmdline" 2>/dev/null)" || continue
+    [[ -n "$cmd" && "$cmd" != *klippy* ]] || continue
+    hit=""
+    if [[ -r "$proc/fd" ]]; then
+        for fd in "$proc"/fd/*; do
+            target="$(readlink "$fd" 2>/dev/null)" || continue
+            for dev in "${channels[@]}"; do
+                [[ "$target" == "$dev" ]] && hit="$dev"
+            done
+        done
+    elif [[ "$cmd" =~ $channel_re ]]; then
+        hit="${BASH_REMATCH[0]}"
+        [[ "${cmd%% *}" =~ $shell_re ]] && hit=""
+    fi
+    [[ -n "$hit" ]] || continue
+    bad "process $pid also uses $hit: ${cmd:0:100}"
+    readers=$((readers + 1))
+done
+(( readers )) || ok "no other process uses the K2 channels"
 
 step "Services"
 for service in klipper moonraker nginx; do
@@ -131,6 +167,28 @@ if lib:
         lib.get("path"), lib.get("custom_count"), lib.get("system_count"),
         "  ERROR: " + lib["error"] if lib.get("error") else ""))
 ' <<<"$box" 2>/dev/null || warn "box object not available"
+    objects="$(curl -fsS --max-time 3 http://127.0.0.1:7125/printer/objects/list 2>/dev/null || true)"
+    while IFS= read -r object; do
+        [[ -n "$object" ]] || continue
+        link="$(curl -fsS --max-time 3 "http://127.0.0.1:7125/printer/objects/query?${object// /%20}" 2>/dev/null | python3 -c '
+import json, sys
+name = sys.argv[1]
+s = json.load(sys.stdin)["result"]["status"][name]
+print("%s %s tx %s rx %s timeouts %s" % (
+    s.get("link_state", "-"), name, s.get("tx_frames"), s.get("rx_frames"), s.get("timeouts")))
+' "$object" 2>/dev/null || true)"
+        case "$link" in
+            ok\ *) ok "RS-485 link ${link#ok }" ;;
+            lost\ *) bad "RS-485 link LOST: ${link#lost } (check the T113 RS-485 bridge and other readers of the channel)" ;;
+            "") warn "$object status not available" ;;
+            *) info "RS-485 link state ${link}" ;;
+        esac
+    done < <(python3 -c '
+import json, sys
+for o in json.load(sys.stdin)["result"]["objects"]:
+    if o.startswith("serial_485"):
+        print(o)
+' <<<"$objects" 2>/dev/null)
 fi
 
 echo
