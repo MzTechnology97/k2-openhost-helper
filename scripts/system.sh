@@ -44,6 +44,26 @@ install_system() {
         fi
     fi
 
+    step "T113 USB gadget serial driver"
+    # The T113 uses three configfs gser functions with the standard Linux
+    # Gadget Serial VID/PID 0525:a4a6. The generic usbserial driver does not
+    # claim arbitrary vendor-specific interfaces unless this pair is supplied.
+    # Persist it for every boot/kernel update, then also bind a gadget that is
+    # already present now. new_id covers the case where usbserial was loaded
+    # earlier without the module parameters; do not unload the driver because
+    # that could disrupt unrelated serial devices.
+    sudo_render "${FILES_DIR}/modprobe/k2-openhost-gadget-serial.conf" \
+        /etc/modprobe.d/k2-openhost-gadget-serial.conf
+    sudo_render "${FILES_DIR}/modules-load/k2-openhost-gadget-serial.conf" \
+        /etc/modules-load.d/k2-openhost-gadget-serial.conf
+    sudo modprobe usbserial vendor=0x0525 product=0xa4a6
+    if [[ -e /sys/bus/usb-serial/drivers/generic/new_id ]]; then
+        printf '0525 a4a6\n' | sudo tee /sys/bus/usb-serial/drivers/generic/new_id \
+            >/dev/null 2>&1 || true
+    fi
+    sudo udevadm settle || true
+    ok "usbserial persists for T113 gadget 0525:a4a6"
+
     step "udev names for the K2 serial channels"
     sudo_render "${FILES_DIR}/udev/99-k2-openhost.rules" /etc/udev/rules.d/99-k2-openhost.rules
     sudo udevadm control --reload-rules
@@ -57,11 +77,16 @@ install_system() {
 }
 
 remove_system() {
-    step "Removing K2-OpenHost udev rules"
-    sudo rm -f /etc/udev/rules.d/99-k2-openhost.rules
+    step "Removing K2-OpenHost host rules"
+    sudo rm -f /etc/udev/rules.d/99-k2-openhost.rules \
+        /etc/modprobe.d/k2-openhost-gadget-serial.conf \
+        /etc/modules-load.d/k2-openhost-gadget-serial.conf
+    # Deliberately do not unload usbserial here: another live serial device or
+    # the printer itself may still be using it. The binding disappears on the
+    # next reboot once the persistent files above are gone.
     sudo udevadm control --reload-rules
     mark_removed system
-    ok "removed (packages, groups and printer_data are kept)"
+    ok "removed (loaded serial drivers, packages, groups and printer_data are kept)"
 }
 
 case "${1:-install}" in
