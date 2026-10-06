@@ -21,6 +21,10 @@ SHA-256:
 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
 ```
 
+**Status: withdrawn from the menu (2026-10-06).** It was flashed on the reference printer with T113 bootstrap 0.1.1, and the CFS loader refused to start it (`get start_app NACK`, update `fail`). Bootstrap 0.1.1 named the staged copy after its SHA-256, so `mcu_util_485` wrote `3cf3385dcbc5` as the application version. Bootstrap 0.1.2 keeps the stock name, but the image itself is being revised, so it is no longer in `manifest.json`. The CFS was recovered with the stock 153 through a normal `mcu_update`.
+
+A CFS left in its loader after a failed custom image can be flashed back. If it reports an empty or different application version, `k2oh-mcu-fw apply --cfs` flashes the stock file. If it still reports the stock version, use the custom-image path with the stock file itself (renamed `cfs0_050_G32-cfs0_000_153-stock.bin`, with its SHA-256), which goes through the `CFS=1` pass.
+
 From the repository root on the CM5, the intended command is:
 
 ```bash
