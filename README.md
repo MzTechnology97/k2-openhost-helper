@@ -227,6 +227,7 @@ KAMP is not installed separately: Kalico already includes it, and the K2 profile
 | 30 | MCU firmware status | Board versions on the printer and the firmware files slot B would flash. |
 | 31 | Update MCU firmware | Downloads the latest Creality release, stages it, shows what changes and flashes only if you confirm. When the printer is idle it offers to stop Klipper on this host, then passes the printer a proof that the gadget ports are free (`sudo` is needed); unknown states block. Step by step: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
 | 32 | Link the T113 controls | Connects this host to `k2oh-ctl` on slot B. It copies the shared token to `~/printer_data/config/k2oh_t113.token`, sets `host` in `k2_t113.cfg` and writes the Moonraker power device `K2_MCU_Power` (`moonraker_k2_t113.conf`). It turns `[include k2_t113.cfg]` on only when the installed Kalico has the module. The install offers it too. |
+| 40 | Experimental CFS firmware | Lists manifest-approved candidates from `firmware/custom-cfs/`, verifies SHA-256 and hardware/application target, then shows an explicit risk disclaimer. Continuing requires typing `FLASH EXPERIMENTAL CFS`; `--yes` cannot bypass it. The actual flash remains delegated to Creality stock tools. |
 
 Entries already installed show `[installed]`. If a step fails, the menu shows the error and stays open.
 
@@ -260,7 +261,7 @@ Example:
 
 ```bash
 ./helper.sh t113 mcu-fw apply --cfs \
-  --cfs-image ~/firmware/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
+  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
   --cfs-sha256 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
 ```
 
@@ -276,6 +277,8 @@ In this mode `--cfs-image` is a **CM5-local path**. Before touching the bus, the
 8. after the command, removes the transfer copy from the T113.
 
 `--cfs-image` always requires `apply`, `--cfs`, and `--cfs-sha256`. No generic `--force` switch is introduced.
+
+The same operation is available in the interactive menu as **40) Experimental CFS firmware**, under a separate `[Experimental]` section. It only lists candidates present in `firmware/custom-cfs/manifest.json`: a `.bin` copied into the folder but not approved by the manifest is not offered. Before flashing it displays the hardware target, source application, filename, SHA-256 and risks; continuing requires typing exactly `FLASH EXPERIMENTAL CFS`. This acknowledgement is never bypassed by `--yes`.
 
 `apply --cfs` includes the CFS units. This is an example run on slot B, answering no:
 
