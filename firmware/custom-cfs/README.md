@@ -52,6 +52,7 @@ Do not rename a custom CFS image arbitrarily: the filename is used to validate t
 ### Bootstrap dependency
 
 Before this candidate is considered ready for a hardware test, the T113 bootstrap must include the fail-closed custom-CFS container validation merged in `k2-openhost-t113-bootstrap` commit `4e3ae802b6375ca8f3c903af75cb49e366314f2d`. That validation checks the internal application ID, declared image length, CFS CRC16, initial MSP/reset vector, and requires the targeted CFS update result to be `ok`.
+The CM5 helper enforces this dependency before staging a custom image: if the installed `/usr/bin/k2oh-mcu-fw` does not expose both the container validator and the post-flash result verifier, the custom-CFS flow aborts before Klipper is stopped or any flash is attempted.
 
 The installer repository still does **not** contain the firmware binary itself. Copy the locally generated and independently validated binary into `firmware/custom-cfs/` before using the menu.
 
