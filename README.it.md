@@ -227,6 +227,7 @@ KAMP non viene installato a parte: è già integrato in Kalico e lo configura `k
 | 30 | MCU firmware status | Versioni delle schede sulla stampante e file firmware che lo slot B scriverebbe. |
 | 31 | Update MCU firmware | Scarica l'ultima versione Creality, la prepara, mostra cosa cambia e aggiorna solo se confermi. Se la stampante è inattiva propone di fermare Klipper su questo host, poi passa alla stampante una prova che le porte del gadget sono libere (serve `sudo`); gli stati sconosciuti bloccano. Passo per passo: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (vedi la guida). |
 | 32 | Link the T113 controls | Collega questo host a `k2oh-ctl` sullo slot B. Copia il token condiviso in `~/printer_data/config/k2oh_t113.token`, imposta `host` in `k2_t113.cfg` e scrive il dispositivo di alimentazione Moonraker `K2_MCU_Power` (`moonraker_k2_t113.conf`). Attiva `[include k2_t113.cfg]` solo se il Kalico installato ha il modulo. Viene proposto anche durante l'installazione. |
+| 40 | Experimental CFS firmware | Mostra i candidati approvati dal manifest in `firmware/custom-cfs/`, verifica SHA-256 e target hardware/applicazione, quindi mostra un disclaimer esplicito. Per continuare bisogna digitare `FLASH EXPERIMENTAL CFS`; `--yes` non può bypassare questa conferma. Il flash effettivo resta affidato agli strumenti Creality stock. |
 
 Le voci già installate mostrano `[installed]`. Se un passaggio fallisce, il menu mostra l'errore e resta aperto.
 
@@ -260,7 +261,7 @@ Esempio:
 
 ```bash
 ./helper.sh t113 mcu-fw apply --cfs \
-  --cfs-image ~/firmware/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
+  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
   --cfs-sha256 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
 ```
 
@@ -276,6 +277,8 @@ In questa modalità `--cfs-image` è un **percorso locale sul CM5**. Prima di to
 8. al termine elimina dal T113 la copia di trasferimento.
 
 `--cfs-image` richiede sempre `apply`, `--cfs` e `--cfs-sha256`. Non viene aggiunto alcun `--force` generico.
+
+La stessa operazione è disponibile dal menu come **40) Experimental CFS firmware**, in una sezione separata `[Experimental]`. La voce legge esclusivamente i candidati presenti in `firmware/custom-cfs/manifest.json`: un `.bin` aggiunto manualmente alla cartella ma non presente nel manifest non viene proposto. Prima del flash mostra hardware target, applicazione sorgente, filename, SHA-256 e rischi; per continuare bisogna digitare esattamente `FLASH EXPERIMENTAL CFS`. Questa conferma non viene saltata da `--yes`.
 
 `apply --cfs` include le unità CFS. Ecco un esempio sullo slot B, rispondendo no:
 
