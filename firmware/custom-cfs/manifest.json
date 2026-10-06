@@ -1,13 +1,4 @@
 {
   "schema": 1,
-  "candidates": [
-    {
-      "id": "k2-cfs-rfid-diag-v2.1",
-      "filename": "cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin",
-      "sha256": "3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c",
-      "hardware": "cfs0_050_G32",
-      "application": "cfs0_000_153",
-      "description": "K2 CFS RFID diagnostics v2.1 (read-only)"
-    }
-  ]
+  "candidates": []
 }

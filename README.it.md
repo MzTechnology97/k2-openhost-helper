@@ -278,6 +278,8 @@ In questa modalità `--cfs-image` è un **percorso locale sul CM5**. Prima di to
 
 `--cfs-image` richiede sempre `apply`, `--cfs` e `--cfs-sha256`. Non viene aggiunto alcun `--force` generico.
 
+L'immagine v2.1 dell'esempio è stata scritta sulla stampante di riferimento il 6 ottobre 2026 e il CFS non l'ha avviata. È tolta dal menu mentre viene rivista; vedi [firmware/custom-cfs](firmware/custom-cfs/README.md). Per le immagini CFS personalizzate usa il bootstrap del T113 0.1.2 o successivo: la 0.1.1 chiamava la copia con il suo SHA-256, che `mcu_util_485` scriveva nel CFS come versione applicativa.
+
 La stessa operazione è disponibile dal menu come **40) Experimental CFS firmware**, in una sezione separata `[Experimental]`. La voce legge esclusivamente i candidati presenti in `firmware/custom-cfs/manifest.json`: un `.bin` aggiunto manualmente alla cartella ma non presente nel manifest non viene proposto. Prima del flash mostra hardware target, applicazione sorgente, filename, SHA-256 e rischi; per continuare bisogna digitare esattamente `FLASH EXPERIMENTAL CFS`. Questa conferma non viene saltata da `--yes`.
 
 `apply --cfs` include le unità CFS. Ecco un esempio sullo slot B, rispondendo no:

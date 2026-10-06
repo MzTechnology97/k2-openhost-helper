@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Experimental CFS menu (40): the `k2-cfs-rfid-diag-v2.1` candidate is withdrawn from `firmware/custom-cfs/manifest.json`. On the reference printer the CFS loader refused to start it (`start_app NACK`) after a flash with T113 bootstrap 0.1.1, and the image is being revised. Custom images need bootstrap 0.1.2 or later (stock file name for the staged copy).
+
 - **T113, fixes from the first slot B install on a printer (2026-10-06):**
   - `t113 boot-b` and `boot-a` really reboot the printer. The reboot ran in the background of the SSH session and died with it, then the helper saw SSH still open and reported "the printer came back on slot A" although the T113 never rebooted. The reboot now runs in the foreground, and the printer counts as back only when it answers with a new boot id (`/proc/sys/kernel/random/boot_id`).
   - `boot-b` and `boot-a` refuse while a print is running or paused (they reboot the T113 and cut the MCUs).
