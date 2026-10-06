@@ -15,6 +15,118 @@ VERSION="$(cat "$HELPER_DIR/VERSION" 2>/dev/null || echo dev)"
 
 run() { bash "$S/$1" "${@:2}"; }
 
+CUSTOM_CFS_DIR="${CUSTOM_CFS_DIR:-$HELPER_DIR/firmware/custom-cfs}"
+CUSTOM_CFS_MANIFEST="${CUSTOM_CFS_MANIFEST:-$CUSTOM_CFS_DIR/manifest.json}"
+
+experimental_cfs_menu() {
+    local -a candidates=()
+    local line choice=1 id filename sha hardware application description image actual ack manifest_rows
+
+    [[ -r "$CUSTOM_CFS_MANIFEST" ]] || die "experimental CFS manifest not found: $CUSTOM_CFS_MANIFEST"
+    manifest_rows="$(python3 - "$CUSTOM_CFS_MANIFEST" <<'PYMANIFEST'
+import json, os, re, sys
+p=sys.argv[1]
+try:
+    doc=json.load(open(p, encoding='utf-8'))
+except Exception as exc:
+    raise SystemExit('cannot parse manifest: %s' % exc)
+if doc.get('schema') != 1 or not isinstance(doc.get('candidates'), list):
+    raise SystemExit('unsupported experimental CFS manifest schema')
+hex64=re.compile(r'^[0-9a-f]{64}$')
+name_re=re.compile(r'^(?P<hw>cfs[0-9]+_[0-9]+_G[0-9]+)-(?P<app>cfs[0-9]+_[0-9]+_[0-9]+)(?:-[A-Za-z0-9_.-]+)?\.bin$')
+for item in doc['candidates']:
+    fields=[item.get(k) for k in ('id','filename','sha256','hardware','application','description')]
+    if not all(isinstance(x,str) and x for x in fields):
+        raise SystemExit('manifest candidate has missing fields')
+    if any('\t' in x or '\n' in x for x in fields):
+        raise SystemExit('manifest fields may not contain tabs/newlines')
+    if not hex64.fullmatch(item['sha256'].lower()):
+        raise SystemExit('manifest candidate has invalid SHA-256')
+    if os.path.basename(item['filename']) != item['filename']:
+        raise SystemExit('manifest candidate filename must be a basename')
+    m=name_re.fullmatch(item['filename'])
+    if not m:
+        raise SystemExit('manifest candidate filename does not encode a CFS boot/app identity')
+    if m.group('hw') != item['hardware'] or m.group('app') != item['application']:
+        raise SystemExit('manifest hardware/application does not match filename')
+    print('\t'.join(fields))
+PYMANIFEST
+    )" || die "cannot load experimental CFS manifest"
+    if [[ -n "$manifest_rows" ]]; then
+        mapfile -t candidates <<< "$manifest_rows"
+    fi
+    (( ${#candidates[@]} > 0 )) || die "experimental CFS manifest contains no candidates"
+
+    step "Experimental CFS firmware"
+    printf '    %sWARNING:%s these images are experimental and are not stock Creality firmware.\n' "$C_RED" "$C_NC"
+    printf '    The normal MCU firmware updater remains available as menu item 31.\n\n'
+    local n=1
+    for line in "${candidates[@]}"; do
+        IFS=$'\t' read -r id filename sha hardware application description <<< "$line"
+        image="$CUSTOM_CFS_DIR/$filename"
+        if [[ -f "$image" ]]; then
+            printf '    %d) %s%s%s\n' "$n" "$C_YELLOW" "$description" "$C_NC"
+        else
+            printf '    %d) %s [file missing]\n' "$n" "$description"
+        fi
+        printf '       %s\n' "$filename"
+        n=$((n + 1))
+    done
+    echo
+
+    if (( ${#candidates[@]} > 1 )); then
+        printf '    Candidate [1-%d, Enter=cancel]: ' "${#candidates[@]}"
+        read -r choice || choice=""
+        [[ -n "$choice" ]] || { info "Cancelled."; return 0; }
+        [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#candidates[@]} )) \
+            || die "invalid experimental CFS candidate"
+    fi
+
+    line="${candidates[$((choice - 1))]}"
+    IFS=$'\t' read -r id filename sha hardware application description <<< "$line"
+    image="$CUSTOM_CFS_DIR/$filename"
+    [[ -f "$image" ]] || die "firmware file is missing: $image"
+    actual="$(sha256sum "$image" | awk '{print $1}')"
+    [[ "$actual" == "$sha" ]] || die "experimental CFS SHA-256 mismatch: expected $sha, got $actual"
+
+    cat <<EOF
+
+${C_RED}================ EXPERIMENTAL FIRMWARE DISCLAIMER ================${C_NC}
+
+This operation will replace the application firmware of the CFS with an
+experimental, modified image. It is intended only for controlled development
+and interoperability testing.
+
+Risks include loss of CFS communication, failed boot, loss of normal filament
+or RFID functions, and the need to restore the original Creality CFS firmware.
+An interrupted update may require recovery through the stock Creality updater.
+
+The image will be accepted only for the identity encoded by this candidate:
+  Hardware / boot token : $hardware
+  Source application    : $application
+  File                  : $filename
+  SHA-256               : $sha
+
+The actual erase/program/start operations are still performed by Creality's
+stock mcu_update / mcu_util_485 path on the T113.
+
+Before using this option you should have the original CFS firmware available
+for rollback and the printer must be completely idle.
+
+This experimental operation is NOT covered by --yes / unattended mode.
+${C_RED}==================================================================${C_NC}
+
+EOF
+    printf '    To continue, type exactly: %sFLASH EXPERIMENTAL CFS%s\n    > ' "$C_YELLOW" "$C_NC"
+    read -r ack || ack=""
+    if [[ "$ack" != "FLASH EXPERIMENTAL CFS" ]]; then
+        warn "Experimental CFS flash cancelled."
+        return 0
+    fi
+
+    run t113.sh mcu-fw apply --cfs --cfs-image "$image" --cfs-sha256 "$sha"
+}
+
 install_core() {
     run system.sh install
     run kalico.sh install
@@ -92,6 +204,7 @@ do_choice() {
         30) run t113.sh mcu-fw status ;;
         31) run t113.sh mcu-fw update ;;
         32) run t113.sh link ;;
+        40) experimental_cfs_menu ;;
         0|q|Q) exit 0 ;;
         *) warn "invalid choice" ;;
     esac
@@ -142,6 +255,9 @@ menu() {
         item 31 "Update MCU firmware" "latest Creality release; flashes only if you confirm"
         item 32 "Link the T113 controls" "buzzer, MCU power rail, telemetry (k2oh-ctl)"
         echo
+        printf '  %s[Experimental]%s\n' "$C_YELLOW" "$C_NC"
+        item 40 "Experimental CFS firmware" "custom CFS image; explicit risk disclaimer required"
+        echo
         item 0 "Exit"
         echo
         local choice
@@ -172,6 +288,8 @@ Usage: ./helper.sh [--yes] [command]
   backup | restore    configuration backups in ${BACKUP_DIR}
   t113 <command>      printer T113 bootstrap: check | install | status | boot-b |
                       commit | boot-a | host [IP] | mcu-fw <args> | link
+  experimental-cfs    select a manifest-approved experimental CFS image;
+                      always requires the explicit risk acknowledgement phrase
 
   --yes               answer yes to every question (unattended install)
 
@@ -207,8 +325,13 @@ main() {
         backup) run backup.sh backup ;;
         restore) require_sudo; run backup.sh restore ;;
         t113) run t113.sh "${@:2}" ;;
+        experimental-cfs) experimental_cfs_menu ;;
         *) usage; return 2 ;;
     esac
 }
+
+if [[ "${K2OH_HELPER_LIB_ONLY:-0}" == "1" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
 
 main "$@"
