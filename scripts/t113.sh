@@ -66,7 +66,7 @@ t113_ssh() {
     mkdir -p "$STATE_DIR"
     ssh -o ControlMaster=auto -o ControlPath="$SSH_SOCK" -o ControlPersist=15m \
         -o UserKnownHostsFile="$KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new \
-        -o ConnectTimeout=10 "root@${T113_IP}" "$@"
+        -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3         "root@${T113_IP}" "$@"
 }
 
 t113_close() { ssh -o ControlPath="$SSH_SOCK" -O exit "root@${T113_IP}" 2>/dev/null || true; }
@@ -140,20 +140,71 @@ upload() {
     ok "files on the printer in ${REMOTE_DIR}"
 }
 
-wait_for_printer() {
-    local i
+remote_boot_id() { t113_ssh 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null | tr -d '
+ '; }
+
+reboot_printer() {
+    # Reboots the T113 and waits for it to come back. The reboot runs in the
+    # foreground: a reboot started in the background of the SSH session died
+    # with it, and the printer never rebooted. The printer drops the
+    # connection while it reboots, so ssh's exit status means nothing; a new
+    # boot id is the proof.
+    local before
+    before="$(remote_boot_id)"
+    [[ -n "$before" ]] || { warn "cannot read the printer's boot id"; return 1; }
+    t113_ssh 'sync; reboot' >/dev/null 2>&1 || true
     t113_close
+    wait_for_printer "$before"
+}
+
+wait_for_printer() {
+    # wait_for_printer BOOT_ID: waits for SSH to answer with another boot id;
+    # a port that is still open before the reboot does not count.
+    local before="$1" i now
     info "waiting for the printer to come back (up to 4 minutes)..."
     sleep 20
     for i in $(seq 1 44); do
         if timeout 3 bash -c "</dev/tcp/${T113_IP}/22" 2>/dev/null; then
-            sleep 5
-            connect
-            return 0
+            now="$(remote_boot_id)"
+            if [[ -n "$now" && "$now" != "$before" ]]; then
+                connect
+                return 0
+            fi
+            t113_close
         fi
         sleep 5
     done
     return 1
+}
+
+guard_slot_switch() {
+    # A slot switch reboots the T113 and cuts the MCUs: never during a print.
+    local state
+    state="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?print_stats=state' 2>/dev/null         | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"]["status"]["print_stats"]["state"])' 2>/dev/null || true)"
+    case "$state" in
+        printing|paused) die "a print is $state: the printer reboots, so switch slots when it is idle" ;;
+        "") warn "Klipper's print state is unknown (Klipper not ready): rebooting the printer anyway" ;;
+    esac
+}
+
+use_udev_serial_names() {
+    # Slot B's gadget has other /dev/serial/by-id names than slot A's stock
+    # gadget (usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<serial>-... vs
+    # usb-Allwinner_Technology_Inc._Gadget_Serial-...). The udev names
+    # /dev/k2-main, /dev/k2-nozzle, /dev/k2-rs485 (by vendor, product and
+    # interface) are the same in both slots.
+    step "Serial names for both slots (/dev/k2-*)"
+    if [[ ! -f /etc/udev/rules.d/99-k2-openhost.rules ]]; then
+        sudo_render "${FILES_DIR}/udev/99-k2-openhost.rules" /etc/udev/rules.d/99-k2-openhost.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --subsystem-match=tty || true
+        ok "udev rule installed"
+    fi
+    if [[ -f "${CONFIG_DIR}/printer.cfg" ]]; then
+        bash "${SCRIPTS_DIR}/config.sh" serial-names
+    else
+        info "no printer.cfg yet: Kalico's install uses the same names"
+    fi
 }
 
 check_printer() {
@@ -323,6 +374,7 @@ EOF
     step "Writing slot B"
     t113_ssh "cd '$REMOTE_DIR' && sh install-slot-b.sh --host '$HOST_IP'"
     t113_ssh "rm -rf '$REMOTE_DIR'"
+    use_udev_serial_names
 
     step "Next: trial boot of slot B"
     info "Connect the printer's service Micro-USB port to this host."
@@ -409,9 +461,10 @@ EOF
 }
 
 cmd_boot_b() {
+    guard_slot_switch
     connect
-    t113_ssh "/mnt/UDISK/.k2openhost/bin/k2oh-slot boot-b && { nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 & }"
-    if wait_for_printer; then
+    t113_ssh "/mnt/UDISK/.k2openhost/bin/k2oh-slot boot-b"
+    if reboot_printer; then
         FACTS="$(remote_facts)"
         if [[ "$(fact slot)" == "B" ]]; then
             ok "slot B is running (K2-OpenHost $(fact k2oh))"
@@ -422,7 +475,7 @@ cmd_boot_b() {
             warn "the printer came back on slot $(fact slot)"
         fi
     else
-        warn "the printer did not answer; power cycle it to return to slot A"
+        warn "the printer did not come back with a new boot; power cycle it to return to slot A"
     fi
 }
 
@@ -434,8 +487,13 @@ cmd_commit() {
 cmd_boot_a() {
     connect
     confirm "Boot slot A at the next reboot and reboot now?" n || return 0
-    t113_ssh "{ /mnt/UDISK/.k2openhost/bin/k2oh-slot boot-a || k2oh-slot boot-a; } && { nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 & }"
-    wait_for_printer && ok "the printer is back" || warn "the printer did not answer yet"
+    guard_slot_switch
+    t113_ssh "/mnt/UDISK/.k2openhost/bin/k2oh-slot boot-a 2>/dev/null || k2oh-slot boot-a"
+    if reboot_printer; then
+        ok "the printer is back"
+    else
+        warn "the printer did not come back with a new boot yet"
+    fi
 }
 
 cmd_status() {

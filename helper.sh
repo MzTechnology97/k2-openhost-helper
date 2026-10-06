@@ -238,7 +238,7 @@ menu() {
         item 16 "Doctor" "read-only health check"
         item 17 "Update Kalico, Moonraker and Mainsail"
         item 18 "Compare config with the K2 profile"
-        item 19 "Stable serial names in printer.cfg (by-id)"
+        item 19 "Stable serial names in printer.cfg (/dev/k2-*)"
         item 20 "Backup configuration"
         item 21 "Restore configuration"
         item 22 "Restart Klipper / Moonraker"

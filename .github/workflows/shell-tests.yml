@@ -14,3 +14,5 @@ jobs:
         run: bash tests/test_t113_custom_cfs.sh
       - name: Experimental CFS menu tests
         run: bash tests/test_helper_experimental_cfs.sh
+      - name: T113 reboot and serial name tests
+        run: bash tests/test_t113_reboot.sh
