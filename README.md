@@ -254,6 +254,29 @@ The printer's own T113 board runs the USB gadget bridges to this host. The boots
 2. stages it in slot B and shows which boards would change;
 3. flashes **only if you answer yes**, with Creality's own tools, after checking that Klipper on this host is stopped (`sudo systemctl stop klipper`).
 
+For a **custom CFS image that intentionally keeps the same application version** (for example a read-only patch built from `cfs0_050_G32-cfs0_000_153.bin`), the file may remain on the CM5: the helper verifies and transfers it to the T113 before stopping Klipper.
+
+Example:
+
+```bash
+./helper.sh t113 mcu-fw apply --cfs \
+  --cfs-image ~/firmware/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
+  --cfs-sha256 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
+```
+
+In this mode `--cfs-image` is a **CM5-local path**. Before touching the bus, the helper:
+
+1. verifies SHA-256 on the CM5;
+2. checks that the filename encodes the exact CFS hardware and application identity;
+3. verifies over SSH that the installed T113 bootstrap supports the guarded custom-image path;
+4. uploads the file under `/mnt/UDISK/.k2openhost/custom-cfs-upload/...` and verifies SHA-256 again on the T113;
+5. only then checks print state and stops Klipper;
+6. generates `k2oh-host-evidence`, then runs `k2oh-mcu-fw` over SSH on the T113;
+7. the actual flash remains delegated to Creality's stock tools (`mcu_update` / `mcu_util_485`);
+8. after the command, removes the transfer copy from the T113.
+
+`--cfs-image` always requires `apply`, `--cfs`, and `--cfs-sha256`. No generic `--force` switch is introduced.
+
 `apply --cfs` includes the CFS units. This is an example run on slot B, answering no:
 
 <img src="docs/images/cli-t113-mcu-fw-update.png" alt="k2oh-mcu-fw update" width="760">
