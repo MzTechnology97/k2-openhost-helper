@@ -7,7 +7,9 @@
 #   commit        keep slot B (run while slot B is running)
 #   boot-a        boot slot A again
 #   host [IP]     change the external host address used by slot B
-#   mcu-fw ARGS   run k2oh-mcu-fw on the printer (update, list, status, ...)
+#   mcu-fw ARGS   run k2oh-mcu-fw on the printer (update, list, status, ...);
+#                 custom --cfs-image paths are local CM5 files and are uploaded
+#                 to the T113 after SHA-256 verification
 #   link          connect this host to k2oh-ctl on the printer: token,
 #                 [k2_t113] host, Moonraker power device for the MCU rail
 #
@@ -486,22 +488,134 @@ host_evidence() {
     sudo python3 "$T113_DIR/host/k2oh-host-evidence"
 }
 
+CUSTOM_CFS_REMOTE=""
+
+stage_custom_cfs_image() {
+    # The path supplied to the CM5 helper is local to the CM5. Upload a
+    # hash-verified copy to persistent T113 storage, preserving the basename:
+    # k2oh-mcu-fw derives the exact boot/app identity from that basename.
+    local image="$1" expected="${2,,}" actual base remote_dir remote_tmp remote_sum
+    [[ -f "$image" ]] || die "custom CFS image does not exist on this host: $image"
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || die "--cfs-sha256 must be exactly 64 hexadecimal characters"
+    actual="$(sha256sum "$image" | awk '{print $1}')"
+    [[ "$actual" == "$expected" ]] || die "custom CFS SHA-256 mismatch on this host: expected $expected, got $actual"
+
+    base="$(basename "$image")"
+    [[ "$base" =~ ^cfs[0-9]+_[0-9]+_G[0-9]+-cfs[0-9]+_[0-9]+_[0-9]+([-.][A-Za-z0-9_.-]+)?\.bin$ ]] \
+        || die "custom CFS filename must encode exact boot and application identity"
+
+    # Do not stop Klipper unless the printer-side bootstrap actually supports
+    # the guarded same-version custom-image path.
+    t113_ssh "k2oh-mcu-fw apply --help 2>&1 | grep -q -- '--cfs-image'" \
+        || die "the installed T113 bootstrap does not support guarded custom CFS images"
+
+    remote_dir="/mnt/UDISK/.k2openhost/custom-cfs-upload/${expected}"
+    CUSTOM_CFS_REMOTE="${remote_dir}/${base}"
+    remote_tmp="${CUSTOM_CFS_REMOTE}.tmp.$$"
+    t113_ssh "mkdir -p '$remote_dir' && chmod 700 '$remote_dir' && rm -f '$remote_tmp'"
+    info "uploading verified custom CFS image to the T113: $base"
+    t113_ssh "cat > '$remote_tmp'" < "$image"
+    remote_sum="$(t113_ssh "sha256sum '$remote_tmp'" | awk '{print $1}')"
+    if [[ "$remote_sum" != "$expected" ]]; then
+        t113_ssh "rm -f '$remote_tmp'" || true
+        CUSTOM_CFS_REMOTE=""
+        die "custom CFS upload is corrupted: expected $expected, got $remote_sum"
+    fi
+    t113_ssh "chmod 0400 '$remote_tmp' && mv -f '$remote_tmp' '$CUSTOM_CFS_REMOTE'"
+    remote_sum="$(t113_ssh "sha256sum '$CUSTOM_CFS_REMOTE'" | awk '{print $1}')"
+    if [[ "$remote_sum" != "$expected" ]]; then
+        cleanup_custom_cfs_image
+        die "custom CFS staged image changed after upload"
+    fi
+    ok "custom CFS image staged on the T113 with matching SHA-256"
+}
+
+cleanup_custom_cfs_image() {
+    [[ -n "$CUSTOM_CFS_REMOTE" ]] || return 0
+    local path="$CUSTOM_CFS_REMOTE" dir
+    dir="${path%/*}"
+    t113_ssh "rm -f '$path'; rmdir '$dir' 2>/dev/null || true" >/dev/null 2>&1 || true
+    CUSTOM_CFS_REMOTE=""
+}
+
 cmd_mcu_fw() {
-    local args="" a
-    for a in "$@"; do args+=" $(printf '%q' "$a")"; done
-    if [[ "${1:-}" == "apply" || "${1:-}" == "update" ]]; then
+    local action="${1:-}" image="" expected="" a q remote_cmd rc=0
+    local -a original=("$@") remote_args=()
+    local i=0
+
+    # Parse the two custom-image arguments before touching Klipper.  The path
+    # is a CM5-local path; the SHA is an independent operator-provided value.
+    while (( i < ${#original[@]} )); do
+        a="${original[$i]}"
+        case "$a" in
+            --cfs-image)
+                (( i + 1 < ${#original[@]} )) || die "--cfs-image requires a local file path"
+                image="${original[$((i + 1))]}"
+                i=$((i + 2))
+                ;;
+            --cfs-image=*)
+                image="${a#--cfs-image=}"
+                i=$((i + 1))
+                ;;
+            --cfs-sha256)
+                (( i + 1 < ${#original[@]} )) || die "--cfs-sha256 requires a value"
+                expected="${original[$((i + 1))]}"
+                remote_args+=("$a" "$expected")
+                i=$((i + 2))
+                ;;
+            --cfs-sha256=*)
+                expected="${a#--cfs-sha256=}"
+                remote_args+=("$a")
+                i=$((i + 1))
+                ;;
+            *)
+                remote_args+=("$a")
+                i=$((i + 1))
+                ;;
+        esac
+    done
+
+    if [[ -n "$image" || -n "$expected" ]]; then
+        [[ "$action" == "apply" ]] || die "--cfs-image/--cfs-sha256 are supported only with 'mcu-fw apply'"
+        [[ -n "$image" && -n "$expected" ]] || die "custom CFS flashing requires both --cfs-image and --cfs-sha256"
+        [[ " ${remote_args[*]} " == *" --cfs "* ]] || die "custom CFS flashing also requires --cfs"
+    fi
+
+    if [[ "$action" == "apply" || "$action" == "update" ]]; then
         clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
         connect
         require_sudo
+        if [[ -n "$image" ]]; then
+            trap 'cleanup_custom_cfs_image' EXIT
+            stage_custom_cfs_image "$image" "$expected"
+            remote_args+=("--cfs-image" "$CUSTOM_CFS_REMOTE")
+        fi
+        # Image validation/upload and printer-side capability checks happen
+        # before stopping Klipper.  From this point the bus must have one owner.
         stop_klipper_for_flash
-        args+=" --moonraker http://${HOST_IP}:7125 --host-evidence $(host_evidence)"
+        remote_args+=("--moonraker" "http://${HOST_IP}:7125" "--host-evidence" "$(host_evidence)")
     else
         connect
     fi
+
+    remote_cmd="k2oh-mcu-fw"
+    for a in "${remote_args[@]}"; do
+        printf -v q '%q' "$a"
+        remote_cmd+=" $q"
+    done
+
     ssh -t -o ControlMaster=auto -o ControlPath="$SSH_SOCK" -o ControlPersist=15m \
         -o UserKnownHostsFile="$KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new \
-        "root@${T113_IP}" "k2oh-mcu-fw${args}"
+        "root@${T113_IP}" "$remote_cmd" || rc=$?
+    cleanup_custom_cfs_image
+    trap - EXIT
+    return "$rc"
 }
+
+
+if [[ "${K2OH_T113_LIB_ONLY:-0}" == "1" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
 
 case "${1:-}" in
     check) cmd_check ;;
