@@ -32,3 +32,16 @@ From the repository root on the CM5, the intended command is:
 The helper verifies the SHA-256 on the CM5, uploads the file to the T113, verifies it again there, stops Klipper only after those checks, and then delegates the actual CFS update to Creality's stock updater.
 
 Do not rename a custom CFS image arbitrarily: the filename is used to validate the expected CFS hardware token and source application generation.
+
+## Interactive menu
+
+The installer exposes these manifest-approved images under:
+
+```text
+[Experimental]
+40) Experimental CFS firmware
+```
+
+The menu reads `manifest.json`, verifies the local binary SHA-256 and the hardware/application identity encoded by its filename, then displays a non-bypassable risk disclaimer before invoking the normal CM5 -> T113 guarded stock-flash path.
+
+A firmware file copied into this directory is **not** selectable from menu 40 until it is also added to `manifest.json` with its expected SHA-256 and exact hardware/application target.
