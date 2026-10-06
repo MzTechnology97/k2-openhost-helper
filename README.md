@@ -316,13 +316,13 @@ Your changes are never overwritten. When a profile file has been updated and you
 
 <img src="docs/images/cli-config-diff.png" alt="Configuration differences" width="760">
 
-**Serial paths.** `printer.cfg` names the gadget channels by interface: `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` (Main MCU), `if01` (Nozzle MCU) and `if02` (RS-485/CFS). The Klipper start gate waits for the same names.
+**Serial paths.** `printer.cfg` names the gadget channels by interface, with the udev names that host preparation (menu 3) installs: `/dev/k2-main` (Main MCU), `/dev/k2-nozzle` (Nozzle MCU) and `/dev/k2-rs485` (RS-485/CFS). The Klipper start gate waits for the same names. They match the gadget by vendor, product and interface number, so they are the same with T113 slot A's stock gadget and with slot B's K2-OpenHost gadget. The `/dev/serial/by-id` names are not: `usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` in slot A, `usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<serial>-if00-port0` in slot B.
 
 Why not `/dev/ttyUSB0/1/2`: their numbers follow enumeration order. In the [USB bridge failure tests](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/USB_BRIDGE.md#failure-tests), the gadget reconnected while Klipper still held the old ports, and the channels came back as `ttyUSB2/3/4`.
 - With `ttyUSBn` names, `FIRMWARE_RESTART` could not reconnect.
-- With the by-id names, it did.
+- With the by-id names, it did. The `/dev/k2-*` names are udev links of the same kind, which follow the device.
 
-To convert an older `printer.cfg`: menu 19 (`./helper.sh config serial-names`) sets the three `serial:` lines by section. `config.sh serial-names --udev` uses `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485` instead, also stable.
+To convert an older `printer.cfg`: menu 19 (`./helper.sh config serial-names`) sets the three `serial:` lines by section and updates the start gate. `config.sh serial-names --by-id` uses slot A's by-id names instead. The T113 install (menu 24) converts `printer.cfg` to the `/dev/k2-*` names by itself.
 
 ## Health check (doctor)
 

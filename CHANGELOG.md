@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **T113, fixes from the first slot B install on a printer (2026-10-06):**
+  - `t113 boot-b` and `boot-a` really reboot the printer. The reboot ran in the background of the SSH session and died with it, then the helper saw SSH still open and reported "the printer came back on slot A" although the T113 never rebooted. The reboot now runs in the foreground, and the printer counts as back only when it answers with a new boot id (`/proc/sys/kernel/random/boot_id`).
+  - `boot-b` and `boot-a` refuse while a print is running or paused (they reboot the T113 and cut the MCUs).
+  - **Serial names `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485` by default** instead of the by-id names: slot B's gadget has other by-id names (`usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<serial>-…`) than slot A's stock gadget, and Klipper could not find the MCUs. The udev names match vendor, product and interface and are the same in both slots. `t113 install` installs the udev rule when it is missing and converts `printer.cfg` and the start gate; `config serial-names` now selects the udev names and `--by-id` slot A's by-id names. `config install` writes the default names in a newly copied `printer.cfg`.
+  - doctor recognises both gadgets and warns about by-id names in `printer.cfg`.
+  - SSH to the printer uses keepalives (`ServerAliveInterval`), so a session to a rebooting printer ends.
+
 - Menu 40 `[Experimental]`: adds manifest-approved custom CFS firmware selection with local SHA/identity checks and a non-bypassable `FLASH EXPERIMENTAL CFS` disclaimer before using the guarded stock Creality flash path.
 
 - CM5 helper: `t113 mcu-fw apply --cfs --cfs-image ... --cfs-sha256 ...` now verifies a local custom CFS image, uploads and re-verifies it on the T113, stops Klipper only after those checks, then delegates the actual write to the stock Creality updater and removes the transfer copy.

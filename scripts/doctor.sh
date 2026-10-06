@@ -35,8 +35,18 @@ else
 fi
 declare -A expected=([00]="Main MCU" [01]="Nozzle MCU" [02]="RS-485 / CFS")
 declare -A section=([00]='^\[mcu\]$' [01]='^\[mcu nozzle_mcu\]$' [02]='^\[serial_485')
+declare -A udev_name=([00]=/dev/k2-main [01]=/dev/k2-nozzle [02]=/dev/k2-rs485)
+# by-id: slot A's stock gadget (...Gadget_Serial-if00-port0) or slot B's
+# (...K2-OpenHost_Gadget_Serial_<serial>-if00-port0)
+gadget_link() {
+    if [[ -e "${udev_name[$1]}" ]]; then
+        echo "${udev_name[$1]}"
+    else
+        ls /dev/serial/by-id/*Gadget_Serial*-if$1-port0 2>/dev/null | head -1
+    fi
+}
 for num in 00 01 02; do
-    link="$(ls /dev/serial/by-id/*Gadget_Serial-if${num}-port0 2>/dev/null | head -1)"
+    link="$(gadget_link "$num")"
     if [[ -z "$link" ]]; then
         bad "interface ${num} (${expected[$num]}) has no device"
         continue
@@ -46,7 +56,11 @@ for num in 00 01 02; do
     if [[ -z "$configured" ]]; then
         warn "interface ${num} (${expected[$num]}) is $dev; printer.cfg has no matching serial"
     elif [[ "$(readlink -f "$configured" 2>/dev/null)" == "$dev" ]]; then
-        ok "interface ${num} (${expected[$num]}) = $dev = printer.cfg $configured"
+        if [[ "$configured" == /dev/serial/by-id/* ]]; then
+            warn "interface ${num} (${expected[$num]}) = $dev = printer.cfg $configured, but by-id names change between T113 slot A and slot B ('scripts/config.sh serial-names' switches to ${udev_name[$num]})"
+        else
+            ok "interface ${num} (${expected[$num]}) = $dev = printer.cfg $configured"
+        fi
     else
         bad "interface ${num} (${expected[$num]}) is $dev but printer.cfg uses $configured ('scripts/config.sh serial-names' fixes this)"
     fi
@@ -59,7 +73,7 @@ if service_exists k2-openhost-demux; then
     bad "the retired Cartographer MUX demux (k2-openhost-demux) is installed; 'scripts/system.sh retire-demux' removes it"
 fi
 channels=()
-for link in /dev/serial/by-id/*Gadget_Serial-if0[0-2]-port0; do
+for link in /dev/serial/by-id/*Gadget_Serial*-if0[0-2]-port0; do
     [[ -e "$link" ]] && channels+=("$(readlink -f "$link")")
 done
 channel_re='/dev/(ttyUSB[0-9]+|serial/by-id/[^ ]*Gadget_Serial[^ ]*|k2-(main|nozzle|rs485))'

@@ -316,13 +316,13 @@ Le tue modifiche non vengono mai sovrascritte. Quando un file del profilo è sta
 
 <img src="docs/images/cli-config-diff.png" alt="Differenze di configurazione" width="760">
 
-**Percorsi seriali.** `printer.cfg` indica i canali del gadget per interfaccia: `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` (Main MCU), `if01` (Nozzle MCU) e `if02` (RS-485/CFS). Il gate di avvio di Klipper attende gli stessi nomi.
+**Percorsi seriali.** `printer.cfg` indica i canali del gadget per interfaccia, con i nomi udev che installa la preparazione dell'host (menu 3): `/dev/k2-main` (Main MCU), `/dev/k2-nozzle` (Nozzle MCU) e `/dev/k2-rs485` (RS-485/CFS). Il gate di avvio di Klipper attende gli stessi nomi. Riconoscono il gadget da vendor, product e numero di interfaccia, quindi sono uguali con il gadget originale dello slot A della T113 e con il gadget K2-OpenHost dello slot B. I nomi in `/dev/serial/by-id` invece cambiano: `usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` nello slot A, `usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<seriale>-if00-port0` nello slot B.
 
 Perché non `/dev/ttyUSB0/1/2`: i loro numeri seguono l'ordine di enumerazione. Nei [test di guasto del bridge USB](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/USB_BRIDGE.md#test-di-guasto) il gadget si è riconnesso mentre Klipper teneva ancora le vecchie porte, e i canali sono tornati come `ttyUSB2/3/4`.
 - Con i nomi `ttyUSBn`, `FIRMWARE_RESTART` non riusciva a ricollegarsi.
-- Con i nomi by-id, sì.
+- Con i nomi by-id, sì. I nomi `/dev/k2-*` sono collegamenti udev dello stesso tipo, che seguono il dispositivo.
 
-Per convertire un `printer.cfg` più vecchio: il menu 19 (`./helper.sh config serial-names`) imposta le tre righe `serial:` per sezione. `config.sh serial-names --udev` usa invece `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485`, anch'essi stabili.
+Per convertire un `printer.cfg` più vecchio: il menu 19 (`./helper.sh config serial-names`) imposta le tre righe `serial:` per sezione e aggiorna il gate di avvio. `config.sh serial-names --by-id` usa invece i nomi by-id dello slot A. L'installazione della T113 (menu 24) converte da sola `printer.cfg` ai nomi `/dev/k2-*`.
 
 ## Controllo dell'host (doctor)
 
