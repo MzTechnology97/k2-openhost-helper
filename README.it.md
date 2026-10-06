@@ -347,7 +347,7 @@ L'esempio qui sopra è stato preso sulla macchina di riferimento: segnala ModemM
 
 - **Da Mainsail:** *Machine* → *Update Manager* aggiorna Kalico, Moonraker, Mainsail (canale pre-release), Cartographer e questo installer.
 - **Dall'installer:** menu 17 oppure `./helper.sh update`.
-- **L'installer stesso:** `git -C ~/k2-openhost-installer-helper pull`.
+- **L'installer stesso:** a ogni avvio, come KIAUH, controlla se il ramo che segue ha commit nuovi. Se ci sono, li elenca e chiede *Update the installer helper now?*; con sì si aggiorna e riparte con lo stesso comando. Non tocca mai le modifiche locali, e salta il controllo senza terminale (timer, script), con `--yes` (solo un avviso) o con `K2OH_NO_UPDATE_CHECK=1`. A mano: `git -C ~/k2-openhost-installer-helper pull`.
 
 Gli aggiornamenti vengono rifiutati durante una stampa in corso o in pausa.
 

@@ -16,3 +16,5 @@ jobs:
         run: bash tests/test_helper_experimental_cfs.sh
       - name: T113 reboot and serial name tests
         run: bash tests/test_t113_reboot.sh
+      - name: Helper self-update tests
+        run: bash tests/test_helper_self_update.sh

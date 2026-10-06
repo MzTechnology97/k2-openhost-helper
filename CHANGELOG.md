@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Update check at start, like KIAUH.** The helper fetches the branch it follows (10 s timeout), lists the new commits and asks before updating (`git merge --ff-only`), then restarts with the same arguments. It is skipped without a terminal, with `K2OH_NO_UPDATE_CHECK=1`, outside a git checkout, on a detached HEAD or without upstream; `--yes` only reports it; local changes are never touched. Tests: `tests/test_helper_self_update.sh`.
+
 - Experimental CFS menu (40): the `k2-cfs-rfid-diag-v2.1` candidate is withdrawn from `firmware/custom-cfs/manifest.json`. On the reference printer the CFS loader refused to start it (`start_app NACK`) after a flash with T113 bootstrap 0.1.1, and the image is being revised. Custom images need bootstrap 0.1.2 or later (stock file name for the staged copy).
 
 - **T113, fixes from the first slot B install on a printer (2026-10-06):**
