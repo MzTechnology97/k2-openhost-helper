@@ -563,9 +563,12 @@ stage_custom_cfs_image() {
         || die "custom CFS filename must encode exact boot and application identity"
 
     # Do not stop Klipper unless the printer-side bootstrap actually supports
-    # the guarded same-version custom-image path.
+    # the guarded same-version custom-image path and the newer fail-closed
+    # container/result validation used by the experimental CFS workflow.
     t113_ssh "k2oh-mcu-fw apply --help 2>&1 | grep -q -- '--cfs-image'" \
         || die "the installed T113 bootstrap does not support guarded custom CFS images"
+    t113_ssh "grep -q 'def validate_custom_cfs_container' /usr/bin/k2oh-mcu-fw && grep -q 'def verify_cfs_update_results' /usr/bin/k2oh-mcu-fw" \
+        || die "the installed T113 bootstrap is too old for this custom CFS image; update/reinstall the T113 bootstrap first"
 
     remote_dir="/mnt/UDISK/.k2openhost/custom-cfs-upload/${expected}"
     CUSTOM_CFS_REMOTE="${remote_dir}/${base}"
