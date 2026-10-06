@@ -2,44 +2,62 @@
 
 Place locally generated or experimental CFS firmware images in this directory on the CM5.
 
-Example:
+The firmware binary itself is intentionally **not tracked by Git**. Only manifest metadata and documentation are committed.
 
-```text
-firmware/custom-cfs/
-└── cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin
-```
+## Current experimental candidate
 
-The firmware binary itself is intentionally **not tracked by Git**.
+The previous extended v2.1 candidate is intentionally no longer offered by the installer. Hardware testing showed that its container metadata was inconsistent with the modified image size/content, and the CFS reported `START_APP NACK`.
 
-For the current K2 CFS RFID v2.1 candidate:
+The current first-test candidate is the minimal same-size v2.2 image:
 
 ```text
 filename:
-cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin
+cfs0_050_G32-cfs0_000_153-rfid-diag-minimal-samesize-v2_2.bin
+
+source application:
+cfs0_000_153
+
+size:
+175672 bytes / 0x2AE38
+
+CFS container CRC16:
+0xE4D4
 
 SHA-256:
-3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
+c253f340c5ced05cf3c65e4a454a88797476fe4880396709b0526772fefdb972
 ```
 
-**Status: withdrawn from the menu (2026-10-06).** It was flashed on the reference printer with T113 bootstrap 0.1.1, and the CFS loader refused to start it (`get start_app NACK`, update `fail`). Bootstrap 0.1.1 named the staged copy after its SHA-256, so `mcu_util_485` wrote `3cf3385dcbc5` as the application version. Bootstrap 0.1.2 keeps the stock name, but the image itself is being revised, so it is no longer in `manifest.json`. The CFS was recovered with the stock 153 through a normal `mcu_update`.
+This candidate is deliberately minimal and passive. It exposes only `INFO` and `STOCK_STATE`; it does not add active RFID polling, authentication, block reads, tag writes, EEPROM writes, or arbitrary RF transceive support.
 
-A CFS left in its loader after a failed custom image can be flashed back. If it reports an empty or different application version, `k2oh-mcu-fw apply --cfs` flashes the stock file. If it still reports the stock version, use the custom-image path with the stock file itself (renamed `cfs0_050_G32-cfs0_000_153-stock.bin`, with its SHA-256), which goes through the `CFS=1` pass.
+Example local layout:
 
-From the repository root on the CM5, the intended command is:
+```text
+firmware/custom-cfs/
+├── manifest.json
+└── cfs0_050_G32-cfs0_000_153-rfid-diag-minimal-samesize-v2_2.bin
+```
+
+From the repository root on the CM5, the intended guarded command is:
 
 ```bash
 ./helper.sh t113 mcu-fw apply --cfs \
-  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
-  --cfs-sha256 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
+  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-diag-minimal-samesize-v2_2.bin \
+  --cfs-sha256 c253f340c5ced05cf3c65e4a454a88797476fe4880396709b0526772fefdb972
 ```
 
 The helper verifies the SHA-256 on the CM5, uploads the file to the T113, verifies it again there, stops Klipper only after those checks, and then delegates the actual CFS update to Creality's stock updater.
 
 Do not rename a custom CFS image arbitrarily: the filename is used to validate the expected CFS hardware token and source application generation.
 
+### Bootstrap dependency
+
+Before this candidate is considered ready for a hardware test, the T113 bootstrap must include the fail-closed custom-CFS container validation merged in `k2-openhost-t113-bootstrap` commit `4e3ae802b6375ca8f3c903af75cb49e366314f2d`. That validation checks the internal application ID, declared image length, CFS CRC16, initial MSP/reset vector, and requires the targeted CFS update result to be `ok`.
+
+The installer repository still does **not** contain the firmware binary itself. Copy the locally generated and independently validated binary into `firmware/custom-cfs/` before using the menu.
+
 ## Interactive menu
 
-The installer exposes these manifest-approved images under:
+The installer exposes manifest-approved images under:
 
 ```text
 [Experimental]
