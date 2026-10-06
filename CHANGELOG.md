@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Menu 40 `[Experimental]`: adds manifest-approved custom CFS firmware selection with local SHA/identity checks and a non-bypassable `FLASH EXPERIMENTAL CFS` disclaimer before using the guarded stock Creality flash path.
+
 - CM5 helper: `t113 mcu-fw apply --cfs --cfs-image ... --cfs-sha256 ...` now verifies a local custom CFS image, uploads and re-verifies it on the T113, stops Klipper only after those checks, then delegates the actual write to the stock Creality updater and removes the transfer copy.
 
 - **Stable serial names by default.** Main, Nozzle and RS-485 are now addressed as `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00/01/02-port0`:
