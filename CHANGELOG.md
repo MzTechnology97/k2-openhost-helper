@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CM5 helper: `t113 mcu-fw apply --cfs --cfs-image ... --cfs-sha256 ...` now verifies a local custom CFS image, uploads and re-verifies it on the T113, stops Klipper only after those checks, then delegates the actual write to the stock Creality updater and removes the transfer copy.
+
 - **Stable serial names by default.** Main, Nozzle and RS-485 are now addressed as `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00/01/02-port0`:
   - the Kalico profile's `printer.cfg` uses them (kalico-k2pro#20), and the Klipper start gate waits for the same names;
   - why: with `/dev/ttyUSB0/1/2`, a gadget reconnect while Klipper held the old ports renumbered them to `ttyUSB2/3/4` and `FIRMWARE_RESTART` could not reconnect (K2-OpenHost USB_BRIDGE failure tests);
