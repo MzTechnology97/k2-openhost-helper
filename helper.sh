@@ -204,6 +204,7 @@ do_choice() {
         30) run t113.sh mcu-fw status ;;
         31) run t113.sh mcu-fw update ;;
         32) run t113.sh link ;;
+        33) run t113.sh update ;;
         40) experimental_cfs_menu ;;
         0|q|Q) exit 0 ;;
         *) warn "invalid choice" ;;
@@ -254,6 +255,7 @@ menu() {
         item 30 "MCU firmware status" "board versions on the printer"
         item 31 "Update MCU firmware" "latest Creality release; flashes only if you confirm"
         item 32 "Link the T113 controls" "buzzer, MCU power rail, telemetry (k2oh-ctl)"
+        item 33 "Update the T113 programs" "slot B, no reinstall; the boards keep their firmware"
         echo
         printf '  %s[Experimental]%s\n' "$C_YELLOW" "$C_NC"
         item 40 "Experimental CFS firmware" "custom CFS image; explicit risk disclaimer required"
@@ -287,7 +289,8 @@ Usage: ./helper.sh [--yes] [command]
   config diff         compare your config with the K2 profile
   backup | restore    configuration backups in ${BACKUP_DIR}
   t113 <command>      printer T113 bootstrap: check | install | status | boot-b |
-                      commit | boot-a | host [IP] | mcu-fw <args> | link
+                      commit | boot-a | host [IP] | mcu-fw <args> | link |
+                      update [--revert]
   experimental-cfs    select a manifest-approved experimental CFS image;
                       always requires the explicit risk acknowledgement phrase
 

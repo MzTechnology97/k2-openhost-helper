@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **T113: `t113 update [--revert]` (menu 33).** Updates K2-OpenHost's programs and boot links on a running slot B without reinstalling (T113 bootstrap 0.1.3, `update-slot-b.sh`). A reinstall goes through slot A, which flashes its own firmware files back onto the boards at boot. The helper packs the programs, uploads them with SHA-256 checks, shows the printer's `--check`, applies only on confirmation and offers a reboot when boot-time programs changed. Refused on slot A and during a print. Tests: `tests/test_t113_update.sh`.
+- `guard_idle` is shared by the slot switch and the update; `upload` takes a destination.
+
 - Experimental CFS menu (40): the `k2-cfs-rfid-diag-v2.1` candidate is withdrawn from `firmware/custom-cfs/manifest.json`. On the reference printer the CFS loader refused to start it (`start_app NACK`) after a flash with T113 bootstrap 0.1.1, and the image is being revised. Custom images need bootstrap 0.1.2 or later (stock file name for the staged copy).
 
 - **T113, fixes from the first slot B install on a printer (2026-10-06):**
