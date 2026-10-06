@@ -1,0 +1,14 @@
+name: shell-tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax checks
+        run: |
+          bash -n helper.sh scripts/*.sh scripts/lib/*.sh tests/*.sh
+      - name: Custom CFS orchestration tests
+        run: bash tests/test_t113_custom_cfs.sh

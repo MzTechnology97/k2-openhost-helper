@@ -1,0 +1,12 @@
+# Keep this directory in Git, but never commit firmware binaries.
+*.bin
+*.hex
+*.uf2
+
+# Local checksums / dumps if created next to firmware.
+*.nfc
+*.dump
+*.bin.sha256
+
+!.gitignore
+!README.md
