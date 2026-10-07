@@ -258,14 +258,14 @@ The printer's own T113 board runs the USB gadget bridges to this host. The boots
 2. stages it in slot B and shows which boards would change;
 3. flashes **only if you answer yes**, with Creality's own tools, after checking that Klipper on this host is stopped (`sudo systemctl stop klipper`).
 
-For a **custom CFS image that intentionally keeps the same application version** (for example a read-only patch built from `cfs0_050_G32-cfs0_000_153.bin`), the file may remain on the CM5: the helper verifies and transfers it to the T113 before stopping Klipper.
+For a **custom CFS image that intentionally keeps the same application version**, the file remains on the CM5 until the guarded flash path verifies and transfers it to the T113. The current manifest-approved candidate is the hardware-validated **RFID v3.3 / API7 stock-capture** build for `cfs0_050_G32` + `cfs0_000_153`. The binary and its validation metadata are published in the dedicated [k2-cfs-rfid-tools v3.3 firmware directory](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/main/firmware/v3.3-stockcapture).
 
 Example:
 
 ```bash
 ./helper.sh t113 mcu-fw apply --cfs \
-  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
-  --cfs-sha256 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
+  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-stockcapture-v3_3.bin \
+  --cfs-sha256 5bab3acff49253a54089e779ea473d2cf587db09ab0d9c07c4d6c2e31b810388
 ```
 
 In this mode `--cfs-image` is a **CM5-local path**. Before touching the bus, the helper:
@@ -281,7 +281,7 @@ In this mode `--cfs-image` is a **CM5-local path**. Before touching the bus, the
 
 `--cfs-image` always requires `apply`, `--cfs`, and `--cfs-sha256`. No generic `--force` switch is introduced.
 
-The v2.1 image in the example was flashed on the reference printer on 2026-10-06 and the CFS did not start it. It is withdrawn from the menu while it is revised; see [firmware/custom-cfs](firmware/custom-cfs/README.md). Use T113 bootstrap 0.1.2 or later for custom CFS images: 0.1.1 named the staged copy after its SHA-256, which `mcu_util_485` wrote to the CFS as the application version.
+The earlier v2.1 candidate was rejected by the CFS loader during the first hardware experiment and remains obsolete. The current v3.3/API7 image has since been validated on the reference printer, including a real Bambu Lab spool and the automatic Creality-unknown → Bambu fallback. See [firmware/custom-cfs](firmware/custom-cfs/README.md). Use T113 bootstrap 0.1.2 or later for custom CFS images: 0.1.1 named the staged copy after its SHA-256, which `mcu_util_485` wrote to the CFS as the application version.
 
 The same operation is available in the interactive menu as **40) Experimental CFS firmware**, under a separate `[Experimental]` section. It only lists candidates present in `firmware/custom-cfs/manifest.json`: a `.bin` copied into the folder but not approved by the manifest is not offered. Before flashing it displays the hardware target, source application, filename, SHA-256 and risks; continuing requires typing exactly `FLASH EXPERIMENTAL CFS`. This acknowledgement is never bypassed by `--yes`.
 
