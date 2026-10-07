@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "candidates": [
+    {
+      "id": "k2-cfs-rfid-diag-minimal-v2.2",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-diag-minimal-samesize-v2_2.bin",
+      "sha256": "c253f340c5ced05cf3c65e4a454a88797476fe4880396709b0526772fefdb972",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID diagnostics v2.2 minimal same-size (passive INFO + STOCK_STATE)"
+    }
+  ]
+}

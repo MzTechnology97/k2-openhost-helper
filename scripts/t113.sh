@@ -7,9 +7,14 @@
 #   commit        keep slot B (run while slot B is running)
 #   boot-a        boot slot A again
 #   host [IP]     change the external host address used by slot B
-#   mcu-fw ARGS   run k2oh-mcu-fw on the printer (update, list, status, ...)
+#   mcu-fw ARGS   run k2oh-mcu-fw on the printer (update, list, status, ...);
+#                 custom --cfs-image paths are local CM5 files and are uploaded
+#                 to the T113 after SHA-256 verification
 #   link          connect this host to k2oh-ctl on the printer: token,
 #                 [k2_t113] host, Moonraker power device for the MCU rail
+#   update [--revert]
+#                 update K2-OpenHost's programs on a running slot B without
+#                 reinstalling (bootstrap 0.1.3+); --revert: the image's ones
 #
 # Slot A (the printer's current system) is never written. Slot B is built on
 # this host from Creality's own OTA image (downloaded from Creality's CDN),
@@ -36,6 +41,7 @@ K2_PRO_MODEL="F012"
 K2_PRO_BOARD="CR0CN200400C10"
 HELIX_REPO="prestonbrown/helixscreen"
 REMOTE_DIR="/mnt/UDISK/k2oh-slotb"
+UPDATE_REMOTE_DIR="/mnt/UDISK/k2oh-update"
 
 T113_IP="${T113_IP:-}"
 HOST_IP="${HOST_IP:-}"
@@ -64,7 +70,7 @@ t113_ssh() {
     mkdir -p "$STATE_DIR"
     ssh -o ControlMaster=auto -o ControlPath="$SSH_SOCK" -o ControlPersist=15m \
         -o UserKnownHostsFile="$KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new \
-        -o ConnectTimeout=10 "root@${T113_IP}" "$@"
+        -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3         "root@${T113_IP}" "$@"
 }
 
 t113_close() { ssh -o ControlPath="$SSH_SOCK" -O exit "root@${T113_IP}" 2>/dev/null || true; }
@@ -126,32 +132,91 @@ download_helix() {
 }
 
 upload() {
-    local src="$1" name sum
-    t113_ssh "mkdir -p '$REMOTE_DIR'"
+    # upload SRC [DEST]: every file of SRC to DEST on the printer, SHA-256 checked
+    local src="$1" dest="${2:-$REMOTE_DIR}" name sum
+    t113_ssh "mkdir -p '$dest'"
     for path in "$src"/*; do
         name="$(basename "$path")"
         info "uploading ${name} ($(( $(stat -c %s "$path") / 1048576 )) MB)"
-        t113_ssh "cat > '$REMOTE_DIR/$name'" < "$path"
-        sum="$(t113_ssh "sha256sum '$REMOTE_DIR/$name'" | cut -d' ' -f1)"
+        t113_ssh "cat > '$dest/$name'" < "$path"
+        sum="$(t113_ssh "sha256sum '$dest/$name'" | cut -d' ' -f1)"
         [[ "$sum" == "$(sha256sum "$path" | cut -d' ' -f1)" ]] || die "upload of $name is corrupted"
     done
-    ok "files on the printer in ${REMOTE_DIR}"
+    ok "files on the printer in ${dest}"
+}
+
+remote_boot_id() { t113_ssh 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null | tr -d '
+ '; }
+
+reboot_printer() {
+    # Reboots the T113 and waits for it to come back. The reboot runs in the
+    # foreground: a reboot started in the background of the SSH session died
+    # with it, and the printer never rebooted. The printer drops the
+    # connection while it reboots, so ssh's exit status means nothing; a new
+    # boot id is the proof.
+    local before
+    before="$(remote_boot_id)"
+    [[ -n "$before" ]] || { warn "cannot read the printer's boot id"; return 1; }
+    t113_ssh 'sync; reboot' >/dev/null 2>&1 || true
+    t113_close
+    wait_for_printer "$before"
 }
 
 wait_for_printer() {
-    local i
-    t113_close
+    # wait_for_printer BOOT_ID: waits for SSH to answer with another boot id;
+    # a port that is still open before the reboot does not count.
+    local before="$1" i now
     info "waiting for the printer to come back (up to 4 minutes)..."
     sleep 20
     for i in $(seq 1 44); do
         if timeout 3 bash -c "</dev/tcp/${T113_IP}/22" 2>/dev/null; then
-            sleep 5
-            connect
-            return 0
+            now="$(remote_boot_id)"
+            if [[ -n "$now" && "$now" != "$before" ]]; then
+                connect
+                return 0
+            fi
+            t113_close
         fi
         sleep 5
     done
     return 1
+}
+
+guard_idle() {
+    # guard_idle WHY: refuses while a print runs or is paused; an unknown
+    # state (Klipper not ready) only warns.
+    local state
+    state="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?print_stats=state' 2>/dev/null \
+        | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"]["status"]["print_stats"]["state"])' 2>/dev/null || true)"
+    case "$state" in
+        printing|paused) die "a print is $state: $1, so do it when the printer is idle" ;;
+        "") warn "Klipper's print state is unknown (Klipper not ready): going on" ;;
+    esac
+}
+
+guard_slot_switch() {
+    # A slot switch reboots the T113 and cuts the MCUs: never during a print.
+    guard_idle "the printer reboots"
+}
+
+use_udev_serial_names() {
+    # Slot B's gadget has other /dev/serial/by-id names than slot A's stock
+    # gadget (usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<serial>-... vs
+    # usb-Allwinner_Technology_Inc._Gadget_Serial-...). The udev names
+    # /dev/k2-main, /dev/k2-nozzle, /dev/k2-rs485 (by vendor, product and
+    # interface) are the same in both slots.
+    step "Serial names for both slots (/dev/k2-*)"
+    if [[ ! -f /etc/udev/rules.d/99-k2-openhost.rules ]]; then
+        sudo_render "${FILES_DIR}/udev/99-k2-openhost.rules" /etc/udev/rules.d/99-k2-openhost.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --subsystem-match=tty || true
+        ok "udev rule installed"
+    fi
+    if [[ -f "${CONFIG_DIR}/printer.cfg" ]]; then
+        bash "${SCRIPTS_DIR}/config.sh" serial-names
+    else
+        info "no printer.cfg yet: Kalico's install uses the same names"
+    fi
 }
 
 check_printer() {
@@ -321,6 +386,7 @@ EOF
     step "Writing slot B"
     t113_ssh "cd '$REMOTE_DIR' && sh install-slot-b.sh --host '$HOST_IP'"
     t113_ssh "rm -rf '$REMOTE_DIR'"
+    use_udev_serial_names
 
     step "Next: trial boot of slot B"
     info "Connect the printer's service Micro-USB port to this host."
@@ -343,7 +409,10 @@ cmd_link() {
     # Connects this host to k2oh-ctl, the control service of slot B. Safe to
     # run again: it rewrites the same files.
     connect
-    local token cfg="${CONFIG_DIR}/k2_t113.cfg" tokfile="${CONFIG_DIR}/k2oh_t113.token"
+    local inc motor_inc src
+    inc="$(printer_file k2_t113.cfg)"
+    motor_inc="$(printer_file motor_control.cfg)"
+    local token cfg="${CONFIG_DIR}/${inc}" tokfile="${CONFIG_DIR}/k2oh_t113.token"
     local mconf="${CONFIG_DIR}/moonraker_k2_t113.conf" pcfg="${CONFIG_DIR}/printer.cfg"
     step "Linking this host to the T113 control service (k2oh-ctl)"
     token="$(t113_ssh 'cat /mnt/UDISK/.k2openhost/ctl.token 2>/dev/null' | tr -d '\r\n ')"
@@ -353,12 +422,15 @@ cmd_link() {
     ok "token saved to $tokfile (readable only by you)"
 
     if [[ ! -f "$cfg" ]]; then
-        [[ -f "${KLIPPER_DIR}/config/k2/k2_t113.cfg" ]] \
+        src="${KLIPPER_DIR}/config/k2/macros/k2_t113.cfg"
+        [[ -f "$src" ]] || src="${KLIPPER_DIR}/config/k2/k2_t113.cfg"
+        [[ -f "$src" ]] \
             || die "this Kalico has no config/k2/k2_t113.cfg yet: update Kalico, then run '$0 link' again"
-        cp "${KLIPPER_DIR}/config/k2/k2_t113.cfg" "$cfg"
+        mkdir -p "$(dirname "$cfg")"
+        cp "$src" "$cfg"
     fi
     sed -i "s|^host:.*|host: ${T113_IP}          # T113 address (set by the installer helper)|" "$cfg"
-    ok "[k2_t113] host: ${T113_IP} in $(basename "$cfg")"
+    ok "[k2_t113] host: ${T113_IP} in ${inc}"
 
     (umask 077 && cat > "$mconf" <<EOF
 # K2-OpenHost: the printer's MCU power rail (T113 GPIO140) as a Moonraker power
@@ -391,14 +463,16 @@ EOF
     fi
 
     if [[ -f "${KLIPPER_DIR}/klippy/extras/k2_t113.py" ]]; then
-        if grep -q '^#\[include k2_t113.cfg\]' "$pcfg"; then
+        # The include follows the printer's layout (config root or macros/).
+        local inc_re="${inc//./\\.}" motor_re="${motor_inc//./\\.}"
+        if grep -q "^#\[include ${inc_re}\]" "$pcfg"; then
             backup_file "$pcfg"
-            sed -i 's|^#\[include k2_t113.cfg\]|[include k2_t113.cfg]|' "$pcfg"
-        elif ! grep -q '^\[include k2_t113.cfg\]' "$pcfg"; then
+            sed -i "s|^#\[include ${inc_re}\]|[include ${inc}]|" "$pcfg"
+        elif ! grep -q "^\[include ${inc_re}\]" "$pcfg"; then
             backup_file "$pcfg"
-            sed -i 's|^\[include motor_control.cfg\]|&\n[include k2_t113.cfg]|' "$pcfg"
+            sed -i "s|^\[include ${motor_re}\]|&\n[include ${inc}]|" "$pcfg"
         fi
-        ok "[include k2_t113.cfg] active in printer.cfg"
+        ok "[include ${inc}] active in printer.cfg"
     else
         warn "this Kalico has no k2_t113 module yet: the include stays off."
         warn "Update Kalico, then run '$0 link' again."
@@ -407,9 +481,10 @@ EOF
 }
 
 cmd_boot_b() {
+    guard_slot_switch
     connect
-    t113_ssh "/mnt/UDISK/.k2openhost/bin/k2oh-slot boot-b && { nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 & }"
-    if wait_for_printer; then
+    t113_ssh "/mnt/UDISK/.k2openhost/bin/k2oh-slot boot-b"
+    if reboot_printer; then
         FACTS="$(remote_facts)"
         if [[ "$(fact slot)" == "B" ]]; then
             ok "slot B is running (K2-OpenHost $(fact k2oh))"
@@ -420,7 +495,7 @@ cmd_boot_b() {
             warn "the printer came back on slot $(fact slot)"
         fi
     else
-        warn "the printer did not answer; power cycle it to return to slot A"
+        warn "the printer did not come back with a new boot; power cycle it to return to slot A"
     fi
 }
 
@@ -432,8 +507,13 @@ cmd_commit() {
 cmd_boot_a() {
     connect
     confirm "Boot slot A at the next reboot and reboot now?" n || return 0
-    t113_ssh "{ /mnt/UDISK/.k2openhost/bin/k2oh-slot boot-a || k2oh-slot boot-a; } && { nohup sh -c 'sleep 2; reboot' >/dev/null 2>&1 & }"
-    wait_for_printer && ok "the printer is back" || warn "the printer did not answer yet"
+    guard_slot_switch
+    t113_ssh "/mnt/UDISK/.k2openhost/bin/k2oh-slot boot-a 2>/dev/null || k2oh-slot boot-a"
+    if reboot_printer; then
+        ok "the printer is back"
+    else
+        warn "the printer did not come back with a new boot yet"
+    fi
 }
 
 cmd_status() {
@@ -486,22 +566,206 @@ host_evidence() {
     sudo python3 "$T113_DIR/host/k2oh-host-evidence"
 }
 
+CUSTOM_CFS_REMOTE=""
+
+stage_custom_cfs_image() {
+    # The path supplied to the CM5 helper is local to the CM5. Upload a
+    # hash-verified copy to persistent T113 storage, preserving the basename:
+    # k2oh-mcu-fw derives the exact boot/app identity from that basename.
+    local image="$1" expected="${2,,}" actual base remote_dir remote_tmp remote_sum
+    [[ -f "$image" ]] || die "custom CFS image does not exist on this host: $image"
+    [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || die "--cfs-sha256 must be exactly 64 hexadecimal characters"
+    actual="$(sha256sum "$image" | awk '{print $1}')"
+    [[ "$actual" == "$expected" ]] || die "custom CFS SHA-256 mismatch on this host: expected $expected, got $actual"
+
+    base="$(basename "$image")"
+    [[ "$base" =~ ^cfs[0-9]+_[0-9]+_G[0-9]+-cfs[0-9]+_[0-9]+_[0-9]+([-.][A-Za-z0-9_.-]+)?\.bin$ ]] \
+        || die "custom CFS filename must encode exact boot and application identity"
+
+    # Do not stop Klipper unless the printer-side bootstrap actually supports
+    # the guarded same-version custom-image path and the newer fail-closed
+    # container/result validation used by the experimental CFS workflow.
+    t113_ssh "k2oh-mcu-fw apply --help 2>&1 | grep -q -- '--cfs-image'" \
+        || die "the installed T113 bootstrap does not support guarded custom CFS images"
+    t113_ssh "grep -q 'def validate_custom_cfs_container' /usr/bin/k2oh-mcu-fw && grep -q 'def verify_cfs_update_results' /usr/bin/k2oh-mcu-fw" \
+        || die "the installed T113 bootstrap is too old for this custom CFS image; update/reinstall the T113 bootstrap first"
+
+    remote_dir="/mnt/UDISK/.k2openhost/custom-cfs-upload/${expected}"
+    CUSTOM_CFS_REMOTE="${remote_dir}/${base}"
+    remote_tmp="${CUSTOM_CFS_REMOTE}.tmp.$$"
+    t113_ssh "mkdir -p '$remote_dir' && chmod 700 '$remote_dir' && rm -f '$remote_tmp'"
+    info "uploading verified custom CFS image to the T113: $base"
+    t113_ssh "cat > '$remote_tmp'" < "$image"
+    remote_sum="$(t113_ssh "sha256sum '$remote_tmp'" | awk '{print $1}')"
+    if [[ "$remote_sum" != "$expected" ]]; then
+        t113_ssh "rm -f '$remote_tmp'" || true
+        CUSTOM_CFS_REMOTE=""
+        die "custom CFS upload is corrupted: expected $expected, got $remote_sum"
+    fi
+    t113_ssh "chmod 0400 '$remote_tmp' && mv -f '$remote_tmp' '$CUSTOM_CFS_REMOTE'"
+    remote_sum="$(t113_ssh "sha256sum '$CUSTOM_CFS_REMOTE'" | awk '{print $1}')"
+    if [[ "$remote_sum" != "$expected" ]]; then
+        cleanup_custom_cfs_image
+        die "custom CFS staged image changed after upload"
+    fi
+    ok "custom CFS image staged on the T113 with matching SHA-256"
+}
+
+cleanup_custom_cfs_image() {
+    [[ -n "$CUSTOM_CFS_REMOTE" ]] || return 0
+    local path="$CUSTOM_CFS_REMOTE" dir
+    dir="${path%/*}"
+    t113_ssh "rm -f '$path'; rmdir '$dir' 2>/dev/null || true" >/dev/null 2>&1 || true
+    CUSTOM_CFS_REMOTE=""
+}
+
 cmd_mcu_fw() {
-    local args="" a
-    for a in "$@"; do args+=" $(printf '%q' "$a")"; done
-    if [[ "${1:-}" == "apply" || "${1:-}" == "update" ]]; then
+    local action="${1:-}" image="" expected="" a q remote_cmd rc=0
+    local -a original=("$@") remote_args=()
+    local i=0
+
+    # Parse the two custom-image arguments before touching Klipper.  The path
+    # is a CM5-local path; the SHA is an independent operator-provided value.
+    while (( i < ${#original[@]} )); do
+        a="${original[$i]}"
+        case "$a" in
+            --cfs-image)
+                (( i + 1 < ${#original[@]} )) || die "--cfs-image requires a local file path"
+                image="${original[$((i + 1))]}"
+                i=$((i + 2))
+                ;;
+            --cfs-image=*)
+                image="${a#--cfs-image=}"
+                i=$((i + 1))
+                ;;
+            --cfs-sha256)
+                (( i + 1 < ${#original[@]} )) || die "--cfs-sha256 requires a value"
+                expected="${original[$((i + 1))]}"
+                remote_args+=("$a" "$expected")
+                i=$((i + 2))
+                ;;
+            --cfs-sha256=*)
+                expected="${a#--cfs-sha256=}"
+                remote_args+=("$a")
+                i=$((i + 1))
+                ;;
+            *)
+                remote_args+=("$a")
+                i=$((i + 1))
+                ;;
+        esac
+    done
+
+    if [[ -n "$image" || -n "$expected" ]]; then
+        [[ "$action" == "apply" ]] || die "--cfs-image/--cfs-sha256 are supported only with 'mcu-fw apply'"
+        [[ -n "$image" && -n "$expected" ]] || die "custom CFS flashing requires both --cfs-image and --cfs-sha256"
+        [[ " ${remote_args[*]} " == *" --cfs "* ]] || die "custom CFS flashing also requires --cfs"
+    fi
+
+    if [[ "$action" == "apply" || "$action" == "update" ]]; then
         clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
         connect
         require_sudo
+        if [[ -n "$image" ]]; then
+            trap 'cleanup_custom_cfs_image' EXIT
+            stage_custom_cfs_image "$image" "$expected"
+            remote_args+=("--cfs-image" "$CUSTOM_CFS_REMOTE")
+        fi
+        # Image validation/upload and printer-side capability checks happen
+        # before stopping Klipper.  From this point the bus must have one owner.
         stop_klipper_for_flash
-        args+=" --moonraker http://${HOST_IP}:7125 --host-evidence $(host_evidence)"
+        remote_args+=("--moonraker" "http://${HOST_IP}:7125" "--host-evidence" "$(host_evidence)")
     else
         connect
     fi
+
+    remote_cmd="k2oh-mcu-fw"
+    for a in "${remote_args[@]}"; do
+        printf -v q '%q' "$a"
+        remote_cmd+=" $q"
+    done
+
     ssh -t -o ControlMaster=auto -o ControlPath="$SSH_SOCK" -o ControlPersist=15m \
         -o UserKnownHostsFile="$KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new \
-        "root@${T113_IP}" "k2oh-mcu-fw${args}"
+        "root@${T113_IP}" "$remote_cmd" || rc=$?
+    cleanup_custom_cfs_image
+    trap - EXIT
+    return "$rc"
 }
+
+cmd_update() {
+    # Programs only: /etc/init.d/k2oh-*, /usr/bin/k2oh-*, /usr/sbin/k2oh-*
+    # and the boot links, in slot B's writable layer. A reinstall would go
+    # through slot A, which flashes its own release's firmware onto the boards.
+    local revert="" arg applied=0
+    for arg in "$@"; do
+        case "$arg" in
+            --revert) revert="--revert" ;;
+            *) die "usage: $0 update [--revert]" ;;
+        esac
+    done
+    step "Getting the T113 bootstrap"
+    apt_install git
+    clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
+    ok "$(git -C "$T113_DIR" log -1 --format="%h %s")"
+    [[ -f "$T113_DIR/update-slot-b.sh" && -f "$T113_DIR/make-update-bundle.sh" ]] \
+        || die "this bootstrap has no program update: it needs bootstrap 0.1.3 or later"
+    connect
+    FACTS="$(remote_facts)"
+    [[ "$(fact slot)" == "B" ]] \
+        || die "the printer runs slot $(fact slot): programs are updated on a running slot B (from slot A: '$0 install')"
+    guard_idle "the update restarts the bridges"
+
+    local bundle="$WORK_DIR/update"
+    if [[ -z "$revert" ]]; then
+        step "Packing the programs"
+        bash "$T113_DIR/make-update-bundle.sh" --out "$bundle"
+    else
+        rm -rf "$bundle"
+        mkdir -p "$bundle"
+        cp "$T113_DIR/update-slot-b.sh" "$bundle/"
+    fi
+    step "Copying to the printer"
+    t113_ssh "rm -rf '$UPDATE_REMOTE_DIR'"
+    upload "$bundle" "$UPDATE_REMOTE_DIR"
+
+    step "Checking on the printer (nothing written)"
+    local check
+    check="$(t113_ssh "cd '$UPDATE_REMOTE_DIR' && sh update-slot-b.sh $revert --check")"
+    printf '%s\n' "$check"
+    if grep -qE "none: slot B already runs these programs|No update to revert" <<<"$check"; then
+        t113_ssh "rm -rf '$UPDATE_REMOTE_DIR'"
+        ok "nothing to update"
+        return 0
+    fi
+    if confirm "${revert:+Revert: }Apply these changes to slot B?" n; then
+        step "Updating slot B"
+        t113_ssh "cd '$UPDATE_REMOTE_DIR' && sh update-slot-b.sh $revert"
+        applied=1
+    fi
+    t113_ssh "rm -rf '$UPDATE_REMOTE_DIR'"
+    if (( ! applied )); then
+        info "nothing changed on the printer"
+        return 0
+    fi
+    if t113_ssh "test -f /tmp/k2oh-update-reboot"; then
+        warn "some updated programs run at boot: they take effect after a reboot of the printer"
+        if confirm "Reboot the printer now? Klipper loses the MCUs until FIRMWARE_RESTART" n; then
+            guard_idle "the printer reboots"
+            if reboot_printer; then
+                ok "the printer is back; run FIRMWARE_RESTART in Mainsail"
+            else
+                warn "the printer did not come back with a new boot yet"
+            fi
+        else
+            info "Reboot the printer when it is idle; until then the old boot-time programs run."
+        fi
+    fi
+}
+
+if [[ "${K2OH_T113_LIB_ONLY:-0}" == "1" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
 
 case "${1:-}" in
     check) cmd_check ;;
@@ -513,5 +777,6 @@ case "${1:-}" in
     host) cmd_host "${2:-}" ;;
     mcu-fw) shift; cmd_mcu_fw "$@" ;;
     link) cmd_link ;;
-    *) sed -n '2,13p' "$0"; exit 2 ;;
+    update) shift; cmd_update "$@" ;;
+    *) sed -n '2,17p' "$0"; exit 2 ;;
 esac

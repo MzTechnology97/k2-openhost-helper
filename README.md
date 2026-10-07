@@ -184,7 +184,7 @@ Before printing, follow the checks in the [hardware test plan](https://github.co
 | --- | --- |
 | **Host preparation** | Build tools and Python, `dialout`/`tty` groups, udev names `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485`, `/dev/k2-cartographer`; stops ModemManager and removes brltty (both grab USB serial ports); creates `~/printer_data`. |
 | **Kalico K2-OpenHost** | [kalico-k2pro](https://github.com/MzTechnology97/kalico-k2pro) `k2-pro-openhost` in `~/klipper`: K2 extras, CFS/Box stack, closed-loop motor control, PRTouch, z_align, power-loss recovery and built-in KAMP. Creates `~/klippy-env`, `klipper.service`, and a start gate that waits up to 60 s for the three gadget channels. |
-| **K2 Pro configuration** | The `config/k2` profile from kalico-k2pro into `~/printer_data/config`: `printer.cfg`, `box.cfg`, `macros.cfg`, `start_print.cfg`, `motor_control.cfg`, `prtouch.cfg`, `kamp.cfg`, `timelapse.cfg`, `overrides.cfg`, `cartographer.cfg`. Existing files are kept. |
+| **K2 Pro configuration** | The `config/k2` profile from kalico-k2pro into `~/printer_data/config`: `printer.cfg` (MCUs, motion, heaters, input shaper, includes), `timelapse.cfg`, and the printer files in `macros/`: `system.cfg`, `sensors.cfg`, `leds.cfg`, `print.cfg`, `kamp.cfg`, `fans.cfg`, `maintenance.cfg`, `openhost_controls.cfg`, `box.cfg`, `motor_control.cfg`, `k2_t113.cfg`, `prtouch.cfg`, `cartographer.cfg`, `overrides.cfg`. With an older Kalico (no `config/k2/macros/`) the files go to the config root as before. Existing files are kept; a printer that still includes them from the config root gets a warning. |
 | **Moonraker** | Upstream Moonraker with its own installer (virtualenv, service, polkit) and a `moonraker.conf` for a home network, with update-manager entries for the Mainsail fork and this installer. Kalico and Moonraker are updated by Moonraker's built-in entries. |
 | **Mainsail K2-OpenHost** | The latest prebuilt [mainsail-k2openhost](https://github.com/MzTechnology97/mainsail-k2openhost) release: CFS panel, live filament path, filament library, slot editor, RFID sheet and print mapping. nginx serves it on port 80. Without a release it builds from source when Node.js 20+ is present. |
 | **Full install** adds | Moonraker timelapse (the K2 profile ships its macros) and Klippain Shake&Tune. |
@@ -226,7 +226,9 @@ KAMP is not installed separately: Kalico already includes it, and the K2 profile
 | 29 | Change the host address | Updates the host used by HelixScreen and `k2oh-mcu-fw` on the printer. |
 | 30 | MCU firmware status | Board versions on the printer and the firmware files slot B would flash. |
 | 31 | Update MCU firmware | Downloads the latest Creality release, stages it, shows what changes and flashes only if you confirm. When the printer is idle it offers to stop Klipper on this host, then passes the printer a proof that the gadget ports are free (`sudo` is needed); unknown states block. Step by step: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
-| 32 | Link the T113 controls | Connects this host to `k2oh-ctl` on slot B. It copies the shared token to `~/printer_data/config/k2oh_t113.token`, sets `host` in `k2_t113.cfg` and writes the Moonraker power device `K2_MCU_Power` (`moonraker_k2_t113.conf`). It turns `[include k2_t113.cfg]` on only when the installed Kalico has the module. The install offers it too. |
+| 32 | Link the T113 controls | Connects this host to `k2oh-ctl` on slot B. It copies the shared token to `~/printer_data/config/k2oh_t113.token`, sets `host` in `k2_t113.cfg` (in `macros/` or the config root, as the printer keeps it) and writes the Moonraker power device `K2_MCU_Power` (`moonraker_k2_t113.conf`). It turns the `k2_t113.cfg` include on only when the installed Kalico has the module. The install offers it too. |
+| 33 | Update the T113 programs | On a running slot B, updates K2-OpenHost's programs (`/etc/init.d/k2oh-*`, `/usr/bin/k2oh-*`, `/usr/sbin/k2oh-*`) and boot links without reinstalling, so the boards keep their firmware. It shows the printer's `--check` first and applies only if you confirm; boot-time programs need a reboot, which it offers. Refused during a print. `./helper.sh t113 update --revert` goes back to the image's programs. Needs bootstrap 0.1.3 or later. |
+| 40 | Experimental CFS firmware | Lists manifest-approved candidates from `firmware/custom-cfs/`, verifies SHA-256 and hardware/application target, then shows an explicit risk disclaimer. Continuing requires typing `FLASH EXPERIMENTAL CFS`; `--yes` cannot bypass it. The actual flash remains delegated to Creality stock tools. |
 
 Entries already installed show `[installed]`. If a step fails, the menu shows the error and stays open.
 
@@ -249,10 +251,39 @@ The printer's own T113 board runs the USB gadget bridges to this host. The boots
 
 **3. Trial boot** (menu 26). Slot B boots once. If it does not come up, power cycle the printer and it returns to slot A. On the first boot HelixScreen installs itself, already pointed at this host. Connect the service Micro-USB cable and check Mainsail, then **keep slot B** (menu 27). Menu 28 returns to slot A at any time.
 
+**Updating slot B later** (menu 33, `./helper.sh t113 update`): K2-OpenHost's programs are updated on the running slot B, without the reinstall from slot A, which would flash slot A's own firmware files back onto the boards at boot.
+
 **4. MCU, motor and CFS firmware** (menu 31, `./helper.sh t113 mcu-fw update`):
 1. downloads the latest Creality release and keeps only the firmware files;
 2. stages it in slot B and shows which boards would change;
 3. flashes **only if you answer yes**, with Creality's own tools, after checking that Klipper on this host is stopped (`sudo systemctl stop klipper`).
+
+For a **custom CFS image that intentionally keeps the same application version** (for example a read-only patch built from `cfs0_050_G32-cfs0_000_153.bin`), the file may remain on the CM5: the helper verifies and transfers it to the T113 before stopping Klipper.
+
+Example:
+
+```bash
+./helper.sh t113 mcu-fw apply --cfs \
+  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
+  --cfs-sha256 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
+```
+
+In this mode `--cfs-image` is a **CM5-local path**. Before touching the bus, the helper:
+
+1. verifies SHA-256 on the CM5;
+2. checks that the filename encodes the exact CFS hardware and application identity;
+3. verifies over SSH that the installed T113 bootstrap supports the guarded custom-image path;
+4. uploads the file under `/mnt/UDISK/.k2openhost/custom-cfs-upload/...` and verifies SHA-256 again on the T113;
+5. only then checks print state and stops Klipper;
+6. generates `k2oh-host-evidence`, then runs `k2oh-mcu-fw` over SSH on the T113;
+7. the actual flash remains delegated to Creality's stock tools (`mcu_update` / `mcu_util_485`);
+8. after the command, removes the transfer copy from the T113.
+
+`--cfs-image` always requires `apply`, `--cfs`, and `--cfs-sha256`. No generic `--force` switch is introduced.
+
+The v2.1 image in the example was flashed on the reference printer on 2026-10-06 and the CFS did not start it. It is withdrawn from the menu while it is revised; see [firmware/custom-cfs](firmware/custom-cfs/README.md). Use T113 bootstrap 0.1.2 or later for custom CFS images: 0.1.1 named the staged copy after its SHA-256, which `mcu_util_485` wrote to the CFS as the application version.
+
+The same operation is available in the interactive menu as **40) Experimental CFS firmware**, under a separate `[Experimental]` section. It only lists candidates present in `firmware/custom-cfs/manifest.json`: a `.bin` copied into the folder but not approved by the manifest is not offered. Before flashing it displays the hardware target, source application, filename, SHA-256 and risks; continuing requires typing exactly `FLASH EXPERIMENTAL CFS`. This acknowledgement is never bypassed by `--yes`.
 
 `apply --cfs` includes the CFS units. This is an example run on slot B, answering no:
 
@@ -290,13 +321,13 @@ Your changes are never overwritten. When a profile file has been updated and you
 
 <img src="docs/images/cli-config-diff.png" alt="Configuration differences" width="760">
 
-**Serial paths.** `printer.cfg` names the gadget channels by interface: `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` (Main MCU), `if01` (Nozzle MCU) and `if02` (RS-485/CFS). The Klipper start gate waits for the same names.
+**Serial paths.** `printer.cfg` names the gadget channels by interface, with the udev names that host preparation (menu 3) installs: `/dev/k2-main` (Main MCU), `/dev/k2-nozzle` (Nozzle MCU) and `/dev/k2-rs485` (RS-485/CFS). The Klipper start gate waits for the same names. They match the gadget by vendor, product and interface number, so they are the same with T113 slot A's stock gadget and with slot B's K2-OpenHost gadget. The `/dev/serial/by-id` names are not: `usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` in slot A, `usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<serial>-if00-port0` in slot B.
 
 Why not `/dev/ttyUSB0/1/2`: their numbers follow enumeration order. In the [USB bridge failure tests](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/en/USB_BRIDGE.md#failure-tests), the gadget reconnected while Klipper still held the old ports, and the channels came back as `ttyUSB2/3/4`.
 - With `ttyUSBn` names, `FIRMWARE_RESTART` could not reconnect.
-- With the by-id names, it did.
+- With the by-id names, it did. The `/dev/k2-*` names are udev links of the same kind, which follow the device.
 
-To convert an older `printer.cfg`: menu 19 (`./helper.sh config serial-names`) sets the three `serial:` lines by section. `config.sh serial-names --udev` uses `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485` instead, also stable.
+To convert an older `printer.cfg`: menu 19 (`./helper.sh config serial-names`) sets the three `serial:` lines by section and updates the start gate. `config.sh serial-names --by-id` uses slot A's by-id names instead. The T113 install (menu 24) converts `printer.cfg` to the `/dev/k2-*` names by itself.
 
 ## Health check (doctor)
 

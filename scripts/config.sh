@@ -5,19 +5,42 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 PROFILE_DIR="${KLIPPER_DIR}/config/k2"
-PROFILE_FILES=(
-    printer.cfg
-    box.cfg
-    macros.cfg
-    start_print.cfg
-    motor_control.cfg
-    k2_t113.cfg
-    prtouch.cfg
-    kamp.cfg
-    timelapse.cfg
-    overrides.cfg
-    cartographer.cfg
-)
+if [[ -d "$PROFILE_DIR/macros" ]]; then
+    # printer.cfg keeps the hardware; the printer files live in macros/.
+    PROFILE_FILES=(
+        printer.cfg
+        timelapse.cfg
+        macros/system.cfg
+        macros/sensors.cfg
+        macros/leds.cfg
+        macros/print.cfg
+        macros/kamp.cfg
+        macros/fans.cfg
+        macros/maintenance.cfg
+        macros/openhost_controls.cfg
+        macros/box.cfg
+        macros/motor_control.cfg
+        macros/k2_t113.cfg
+        macros/prtouch.cfg
+        macros/cartographer.cfg
+        macros/overrides.cfg
+    )
+else
+    # Kalico before kalico-k2pro #40: everything in the config root.
+    PROFILE_FILES=(
+        printer.cfg
+        box.cfg
+        macros.cfg
+        start_print.cfg
+        motor_control.cfg
+        k2_t113.cfg
+        prtouch.cfg
+        kamp.cfg
+        timelapse.cfg
+        overrides.cfg
+        cartographer.cfg
+    )
+fi
 
 require_profile() {
     [[ -d "$PROFILE_DIR" ]] || die "$PROFILE_DIR not found: install Kalico first."
@@ -32,6 +55,7 @@ install_config() {
     for file in "${PROFILE_FILES[@]}"; do
         [[ -f "$PROFILE_DIR/$file" ]] || { warn "$file is not in the profile, skipped"; continue; }
         target="$CONFIG_DIR/$file"
+        mkdir -p "$(dirname "$target")"
         if [[ ! -e "$target" ]]; then
             cp "$PROFILE_DIR/$file" "$target"
             ok "$file"
@@ -50,12 +74,20 @@ install_config() {
         warn "kept your version of: ${pending[*]}"
         info "the profile version was saved next to each one as <file>.k2oh-new; compare with: $0 diff"
     fi
+    if [[ -d "$PROFILE_DIR/macros" && "$(printer_file print.cfg)" == "print.cfg" ]]; then
+        warn "your printer.cfg still includes printer files from the config root;"
+        warn "the profile keeps them in macros/ (printer.cfg.k2oh-new shows the includes)."
+        info "Move them into macros/ and update the [include] lines, or install the profile with --force."
+    fi
 
     step "Serial paths"
-    info "printer.cfg names the T113 gadget channels by interface (by-id): Main MCU if00,"
-    info "Nozzle MCU if01, RS-485/CFS if02. They stay right when the gadget reconnects."
-    info "An older printer.cfg with /dev/ttyUSB0/1/2: '$0 serial-names' converts it"
-    info "('$0 serial-names --udev' uses /dev/k2-main, /dev/k2-nozzle, /dev/k2-rs485 instead)."
+    if [[ " ${pending[*]} " != *" printer.cfg "* && -f "$CONFIG_DIR/printer.cfg" ]]; then
+        set_serial_lines "$CONFIG_DIR/printer.cfg" "$K2_MAIN_TTY" "$K2_NOZZLE_TTY" "$K2_RS485_TTY"
+    fi
+    info "printer.cfg names the T113 gadget channels by interface: ${K2_MAIN_TTY} (Main MCU),"
+    info "${K2_NOZZLE_TTY} (Nozzle MCU), ${K2_RS485_TTY} (RS-485/CFS). They stay right when"
+    info "the gadget reconnects and are the same in T113 slot A and slot B."
+    info "An older printer.cfg (/dev/ttyUSB0/1/2 or by-id names): '$0 serial-names' converts it."
     mark_installed config
 }
 
@@ -99,7 +131,7 @@ set_serial_lines() {
 
 # Keep the Klipper start gate waiting for the same names printer.cfg uses.
 set_gate_devices() {
-    local dropin=/etc/systemd/system/klipper.service.d/k2-openhost-transport.conf
+    local dropin="${K2OH_GATE_DROPIN:-/etc/systemd/system/klipper.service.d/k2-openhost-transport.conf}"
     [[ -f "$dropin" ]] || return 0
     sudo sed -i "s#^Environment=\"K2_OPENHOST_TRANSPORT_DEVICES=.*#Environment=\"K2_OPENHOST_TRANSPORT_DEVICES=$1 $2 $3\"#" "$dropin"
     sudo systemctl daemon-reload
@@ -108,13 +140,19 @@ set_gate_devices() {
 serial_names() {
     local cfg="$CONFIG_DIR/printer.cfg" main nozzle rs485
     [[ -f "$cfg" ]] || die "$cfg not found"
-    if [[ "${1:-}" == "--udev" ]]; then
-        main=/dev/k2-main nozzle=/dev/k2-nozzle rs485=/dev/k2-rs485
-        step "Switching printer.cfg to the udev names (/dev/k2-*)"
-    else
-        main="$K2_MAIN_TTY" nozzle="$K2_NOZZLE_TTY" rs485="$K2_RS485_TTY"
-        step "Switching printer.cfg to the by-id names"
-    fi
+    case "${1:-}" in
+        --by-id)
+            # Slot A's stock gadget only: slot B's gadget has other by-id names.
+            main="${K2_BY_ID}-if00-port0" nozzle="${K2_BY_ID}-if01-port0" rs485="${K2_BY_ID}-if02-port0"
+            step "Switching printer.cfg to slot A's by-id names"
+            ;;
+        ""|--udev)
+            main="$K2_MAIN_TTY" nozzle="$K2_NOZZLE_TTY" rs485="$K2_RS485_TTY"
+            step "Switching printer.cfg to ${main}, ${nozzle}, ${rs485}"
+            [[ "$main" != /dev/k2-* || -f /etc/udev/rules.d/99-k2-openhost.rules ]]                 || warn "the udev rule is not installed yet: run host preparation (menu 3) first"
+            ;;
+        *) die "usage: $0 serial-names [--by-id]" ;;
+    esac
     backup_file "$cfg"
     set_serial_lines "$cfg" "$main" "$nozzle" "$rs485"
     set_gate_devices "$main" "$nozzle" "$rs485"
@@ -126,5 +164,5 @@ case "${1:-install}" in
     install) install_config "${2:-}" ;;
     diff) diff_config ;;
     serial-names) serial_names "${2:-}" ;;
-    *) die "usage: $0 install [--force]|diff|serial-names [--udev]" ;;
+    *) die "usage: $0 install [--force]|diff|serial-names [--by-id]" ;;
 esac

@@ -42,12 +42,17 @@ CROWSNEST_DIR="${CROWSNEST_DIR:-${HOME}/crowsnest}"
 # by interface number. /dev/ttyUSB0/1/2 come from enumeration order: when the
 # gadget reconnects while Klipper still holds the old ports they come back as
 # ttyUSB2/3/4 and FIRMWARE_RESTART cannot reconnect (measured, USB_BRIDGE.md).
+# The udev names below (files/udev/99-k2-openhost.rules, by vendor, product
+# and interface) follow the device like the by-id names, and they are the
+# same for slot A's stock gadget and slot B's K2-OpenHost gadget, whose by-id
+# names differ.
 GADGET_VENDOR="0525"
 GADGET_PRODUCT="a4a6"
+K2_MAIN_TTY="${K2_MAIN_TTY:-/dev/k2-main}"
+K2_NOZZLE_TTY="${K2_NOZZLE_TTY:-/dev/k2-nozzle}"
+K2_RS485_TTY="${K2_RS485_TTY:-/dev/k2-rs485}"
+# Slot A's stock gadget by-id names ('config.sh serial-names --by-id').
 K2_BY_ID="/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial"
-K2_MAIN_TTY="${K2_MAIN_TTY:-${K2_BY_ID}-if00-port0}"
-K2_NOZZLE_TTY="${K2_NOZZLE_TTY:-${K2_BY_ID}-if01-port0}"
-K2_RS485_TTY="${K2_RS485_TTY:-${K2_BY_ID}-if02-port0}"
 
 ASSUME_YES="${ASSUME_YES:-0}"
 
@@ -189,6 +194,25 @@ backup_file() {
     copy="${path}.bak-$(date +%Y%m%d-%H%M%S)"
     cp -a "$path" "$copy"
     info "backup: $copy"
+}
+
+# printer_file <name.cfg>: where this printer keeps a printer file, relative to
+# the config folder. Profiles since kalico-k2pro #40 keep them in macros/;
+# printers set up before keep them in the config root until moved.
+printer_file() {
+    local name="$1" pcfg="${CONFIG_DIR}/printer.cfg" re
+    re="${name//./\\.}"
+    if [[ -f "$pcfg" ]] && grep -Eq "^#?[[:space:]]*\[include[[:space:]]+(\./)?${re}\]" "$pcfg"; then
+        echo "$name"
+    elif [[ -f "$pcfg" ]] && grep -Eq '^\[include[[:space:]]+macros/print\.cfg\]' "$pcfg"; then
+        echo "macros/$name"
+    elif [[ -f "$pcfg" ]] && grep -Eq '^\[include[[:space:]]+(macros|start_print)\.cfg\]' "$pcfg"; then
+        echo "$name"
+    elif [[ -d "${KLIPPER_DIR}/config/k2/macros" ]]; then
+        echo "macros/$name"
+    else
+        echo "$name"
+    fi
 }
 
 # render_template <src> <dst>: replace @USER@, @HOME@, @PRINTER_DATA@ ...

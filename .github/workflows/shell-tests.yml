@@ -1,0 +1,22 @@
+name: shell-tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax checks
+        run: |
+          bash -n helper.sh scripts/*.sh scripts/lib/*.sh tests/*.sh
+      - name: Custom CFS orchestration tests
+        run: bash tests/test_t113_custom_cfs.sh
+      - name: Experimental CFS menu tests
+        run: bash tests/test_helper_experimental_cfs.sh
+      - name: T113 reboot and serial name tests
+        run: bash tests/test_t113_reboot.sh
+      - name: T113 program update tests
+        run: bash tests/test_t113_update.sh
+      - name: Config layout tests
+        run: bash tests/test_config_layout.sh

@@ -184,7 +184,7 @@ Prima di stampare segui le verifiche del [piano dei test hardware](https://githu
 | --- | --- |
 | **Preparazione host** | Strumenti di compilazione e Python, gruppi `dialout`/`tty`, nomi udev `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485`, `/dev/k2-cartographer`; ferma ModemManager e rimuove brltty (entrambi occupano le seriali USB); crea `~/printer_data`. |
 | **Kalico K2-OpenHost** | [kalico-k2pro](https://github.com/MzTechnology97/kalico-k2pro) `k2-pro-openhost` in `~/klipper`: extras K2, stack CFS/Box, motori closed-loop, PRTouch, z_align, ripresa dopo blackout e KAMP integrato. Crea `~/klippy-env`, `klipper.service` e un'attesa all'avvio che aspetta fino a 60 s i tre canali gadget. |
-| **Configurazione K2 Pro** | Il profilo `config/k2` di kalico-k2pro in `~/printer_data/config`: `printer.cfg`, `box.cfg`, `macros.cfg`, `start_print.cfg`, `motor_control.cfg`, `prtouch.cfg`, `kamp.cfg`, `timelapse.cfg`, `overrides.cfg`, `cartographer.cfg`. I file esistenti vengono mantenuti. |
+| **Configurazione K2 Pro** | Il profilo `config/k2` di kalico-k2pro in `~/printer_data/config`: `printer.cfg` (MCU, movimento, riscaldatori, input shaper, include), `timelapse.cfg` e i file della stampante in `macros/`: `system.cfg`, `sensors.cfg`, `leds.cfg`, `print.cfg`, `kamp.cfg`, `fans.cfg`, `maintenance.cfg`, `openhost_controls.cfg`, `box.cfg`, `motor_control.cfg`, `k2_t113.cfg`, `prtouch.cfg`, `cartographer.cfg`, `overrides.cfg`. Con un Kalico più vecchio (senza `config/k2/macros/`) i file vanno nella radice come prima. I file esistenti vengono mantenuti; se la stampante li include ancora dalla radice compare un avviso. |
 | **Moonraker** | Moonraker ufficiale con il suo installer (virtualenv, servizio, polkit) e un `moonraker.conf` per la rete di casa, con le voci di aggiornamento per il fork Mainsail e per questo installer. Kalico e Moonraker si aggiornano con le voci integrate di Moonraker. |
 | **Mainsail K2-OpenHost** | L'ultima release precompilata di [mainsail-k2openhost](https://github.com/MzTechnology97/mainsail-k2openhost): pannello CFS, percorso filamento in tempo reale, libreria filamenti, editor degli slot, scheda RFID e mappatura in stampa, servita da nginx sulla porta 80. Senza release la compila dai sorgenti se è presente Node.js 20+. |
 | **Full install** aggiunge | Moonraker timelapse (il profilo K2 contiene già le sue macro) e Klippain Shake&Tune. |
@@ -226,7 +226,9 @@ KAMP non viene installato a parte: è già integrato in Kalico e lo configura `k
 | 29 | Change the host address | Aggiorna l'host usato da HelixScreen e da `k2oh-mcu-fw` sulla stampante. |
 | 30 | MCU firmware status | Versioni delle schede sulla stampante e file firmware che lo slot B scriverebbe. |
 | 31 | Update MCU firmware | Scarica l'ultima versione Creality, la prepara, mostra cosa cambia e aggiorna solo se confermi. Se la stampante è inattiva propone di fermare Klipper su questo host, poi passa alla stampante una prova che le porte del gadget sono libere (serve `sudo`); gli stati sconosciuti bloccano. Passo per passo: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (vedi la guida). |
-| 32 | Link the T113 controls | Collega questo host a `k2oh-ctl` sullo slot B. Copia il token condiviso in `~/printer_data/config/k2oh_t113.token`, imposta `host` in `k2_t113.cfg` e scrive il dispositivo di alimentazione Moonraker `K2_MCU_Power` (`moonraker_k2_t113.conf`). Attiva `[include k2_t113.cfg]` solo se il Kalico installato ha il modulo. Viene proposto anche durante l'installazione. |
+| 32 | Link the T113 controls | Collega questo host a `k2oh-ctl` sullo slot B. Copia il token condiviso in `~/printer_data/config/k2oh_t113.token`, imposta `host` in `k2_t113.cfg` (in `macros/` o nella radice, dove la stampante lo tiene) e scrive il dispositivo di alimentazione Moonraker `K2_MCU_Power` (`moonraker_k2_t113.conf`). Attiva l'include di `k2_t113.cfg` solo se il Kalico installato ha il modulo. Viene proposto anche durante l'installazione. |
+| 33 | Update the T113 programs | Sullo slot B in uso aggiorna i programmi di K2-OpenHost (`/etc/init.d/k2oh-*`, `/usr/bin/k2oh-*`, `/usr/sbin/k2oh-*`) e i collegamenti di avvio senza reinstallare, quindi le schede tengono il loro firmware. Mostra prima il `--check` della stampante e applica solo se confermi; i programmi che lavorano all'avvio richiedono un riavvio, che propone. Rifiutato durante una stampa. `./helper.sh t113 update --revert` torna ai programmi dell'immagine. Serve il bootstrap 0.1.3 o successivo. |
+| 40 | Experimental CFS firmware | Mostra i candidati approvati dal manifest in `firmware/custom-cfs/`, verifica SHA-256 e target hardware/applicazione, quindi mostra un disclaimer esplicito. Per continuare bisogna digitare `FLASH EXPERIMENTAL CFS`; `--yes` non può bypassare questa conferma. Il flash effettivo resta affidato agli strumenti Creality stock. |
 
 Le voci già installate mostrano `[installed]`. Se un passaggio fallisce, il menu mostra l'errore e resta aperto.
 
@@ -249,10 +251,39 @@ La scheda T113 della stampante esegue i bridge USB gadget verso questo host. Il 
 
 **3. Avvio di prova** (voce 26). Lo slot B si avvia una volta. Se non parte, spegni e riaccendi la stampante e torna allo slot A. Al primo avvio HelixScreen si installa da solo, già collegato a questo host. Collega il cavo Micro-USB di servizio e controlla Mainsail, poi **tieni lo slot B** (voce 27). La voce 28 torna allo slot A in qualsiasi momento.
 
+**Aggiornare lo slot B in seguito** (voce 33, `./helper.sh t113 update`): i programmi di K2-OpenHost si aggiornano sullo slot B in uso, senza reinstallare dallo slot A, che all'avvio riscriverebbe sulle schede i file firmware della sua versione.
+
 **4. Firmware di MCU, motori e CFS** (voce 31, `./helper.sh t113 mcu-fw update`):
 1. scarica l'ultima versione Creality e tiene solo i file firmware;
 2. la prepara nello slot B e mostra quali schede cambierebbero;
 3. aggiorna **solo se rispondi sì**, con gli strumenti Creality, dopo aver verificato che Klipper su questo host sia fermo (`sudo systemctl stop klipper`).
+
+Per una **immagine CFS custom che mantiene la stessa versione applicativa** (per esempio una patch read-only costruita su `cfs0_050_G32-cfs0_000_153.bin`), il file può restare sul CM5: l'helper lo verifica e lo trasferisce al T113 prima di fermare Klipper.
+
+Esempio:
+
+```bash
+./helper.sh t113 mcu-fw apply --cfs \
+  --cfs-image ./firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-rfid-diag-ro-v2_1.bin \
+  --cfs-sha256 3cf3385dcbc56960c9fe3adcaff516a7d66a0f8ad2b43b5d47d40c341824549c
+```
+
+In questa modalità `--cfs-image` è un **percorso locale sul CM5**. Prima di toccare il bus l'helper:
+
+1. verifica il SHA-256 sul CM5;
+2. controlla che il nome codifichi esattamente hardware e applicazione CFS;
+3. verifica via SSH che il bootstrap T113 installato supporti il percorso custom protetto;
+4. carica il file in `/mnt/UDISK/.k2openhost/custom-cfs-upload/...` e verifica nuovamente il SHA-256 sul T113;
+5. solo a quel punto controlla lo stato di stampa e ferma Klipper;
+6. genera `k2oh-host-evidence`, quindi esegue via SSH `k2oh-mcu-fw` sul T113;
+7. il flash effettivo resta affidato agli strumenti Creality stock (`mcu_update` / `mcu_util_485`);
+8. al termine elimina dal T113 la copia di trasferimento.
+
+`--cfs-image` richiede sempre `apply`, `--cfs` e `--cfs-sha256`. Non viene aggiunto alcun `--force` generico.
+
+L'immagine v2.1 dell'esempio è stata scritta sulla stampante di riferimento il 6 ottobre 2026 e il CFS non l'ha avviata. È tolta dal menu mentre viene rivista; vedi [firmware/custom-cfs](firmware/custom-cfs/README.md). Per le immagini CFS personalizzate usa il bootstrap del T113 0.1.2 o successivo: la 0.1.1 chiamava la copia con il suo SHA-256, che `mcu_util_485` scriveva nel CFS come versione applicativa.
+
+La stessa operazione è disponibile dal menu come **40) Experimental CFS firmware**, in una sezione separata `[Experimental]`. La voce legge esclusivamente i candidati presenti in `firmware/custom-cfs/manifest.json`: un `.bin` aggiunto manualmente alla cartella ma non presente nel manifest non viene proposto. Prima del flash mostra hardware target, applicazione sorgente, filename, SHA-256 e rischi; per continuare bisogna digitare esattamente `FLASH EXPERIMENTAL CFS`. Questa conferma non viene saltata da `--yes`.
 
 `apply --cfs` include le unità CFS. Ecco un esempio sullo slot B, rispondendo no:
 
@@ -290,13 +321,13 @@ Le tue modifiche non vengono mai sovrascritte. Quando un file del profilo è sta
 
 <img src="docs/images/cli-config-diff.png" alt="Differenze di configurazione" width="760">
 
-**Percorsi seriali.** `printer.cfg` indica i canali del gadget per interfaccia: `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` (Main MCU), `if01` (Nozzle MCU) e `if02` (RS-485/CFS). Il gate di avvio di Klipper attende gli stessi nomi.
+**Percorsi seriali.** `printer.cfg` indica i canali del gadget per interfaccia, con i nomi udev che installa la preparazione dell'host (menu 3): `/dev/k2-main` (Main MCU), `/dev/k2-nozzle` (Nozzle MCU) e `/dev/k2-rs485` (RS-485/CFS). Il gate di avvio di Klipper attende gli stessi nomi. Riconoscono il gadget da vendor, product e numero di interfaccia, quindi sono uguali con il gadget originale dello slot A della T113 e con il gadget K2-OpenHost dello slot B. I nomi in `/dev/serial/by-id` invece cambiano: `usb-Allwinner_Technology_Inc._Gadget_Serial-if00-port0` nello slot A, `usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<seriale>-if00-port0` nello slot B.
 
 Perché non `/dev/ttyUSB0/1/2`: i loro numeri seguono l'ordine di enumerazione. Nei [test di guasto del bridge USB](https://github.com/MzTechnology97/K2-OpenHost/blob/main/docs/it/USB_BRIDGE.md#test-di-guasto) il gadget si è riconnesso mentre Klipper teneva ancora le vecchie porte, e i canali sono tornati come `ttyUSB2/3/4`.
 - Con i nomi `ttyUSBn`, `FIRMWARE_RESTART` non riusciva a ricollegarsi.
-- Con i nomi by-id, sì.
+- Con i nomi by-id, sì. I nomi `/dev/k2-*` sono collegamenti udev dello stesso tipo, che seguono il dispositivo.
 
-Per convertire un `printer.cfg` più vecchio: il menu 19 (`./helper.sh config serial-names`) imposta le tre righe `serial:` per sezione. `config.sh serial-names --udev` usa invece `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485`, anch'essi stabili.
+Per convertire un `printer.cfg` più vecchio: il menu 19 (`./helper.sh config serial-names`) imposta le tre righe `serial:` per sezione e aggiorna il gate di avvio. `config.sh serial-names --by-id` usa invece i nomi by-id dello slot A. L'installazione della T113 (menu 24) converte da sola `printer.cfg` ai nomi `/dev/k2-*`.
 
 ## Controllo dell'host (doctor)
 

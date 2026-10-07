@@ -6,6 +6,24 @@
   - After apt it also flags a pending reboot, and fails when the newest kernel has no `usbserial`.
   - Installed by `scripts/system.sh install` (menu 3) or `health-install`; `./helper.sh health` runs it by hand.
 - The doctor also checks the persistent usbserial binding, the CFS units online and the closed-loop motor startup.
+- **Config: printer files in `macros/`.** With kalico-k2pro #40, `config` installs `printer.cfg` plus the printer files in `~/printer_data/config/macros/` (system, sensors, LEDs, print flow, KAMP, fans, maintenance and the modules). `printer_file` finds where a printer keeps a file: `t113 link` and `extras cartographer` write and include `k2_t113.cfg` / `cartographer.cfg` there. Printers that still include the files from the config root keep working and get a warning; an older Kalico installs the root layout as before. Tests: `tests/test_config_layout.sh`.
+
+- **T113: `t113 update [--revert]` (menu 33).** Updates K2-OpenHost's programs and boot links on a running slot B without reinstalling (T113 bootstrap 0.1.3, `update-slot-b.sh`). A reinstall goes through slot A, which flashes its own firmware files back onto the boards at boot. The helper packs the programs, uploads them with SHA-256 checks, shows the printer's `--check`, applies only on confirmation (no question when there is nothing to update) and offers a reboot when boot-time programs changed. Refused on slot A and during a print. Tests: `tests/test_t113_update.sh`.
+- `guard_idle` is shared by the slot switch and the update; `upload` takes a destination.
+
+- Experimental CFS menu (40): the `k2-cfs-rfid-diag-v2.1` candidate is withdrawn from `firmware/custom-cfs/manifest.json`. On the reference printer the CFS loader refused to start it (`start_app NACK`) after a flash with T113 bootstrap 0.1.1, and the image is being revised. Custom images need bootstrap 0.1.2 or later (stock file name for the staged copy).
+
+- **T113, fixes from the first slot B install on a printer (2026-10-06):**
+  - `t113 boot-b` and `boot-a` really reboot the printer. The reboot ran in the background of the SSH session and died with it, then the helper saw SSH still open and reported "the printer came back on slot A" although the T113 never rebooted. The reboot now runs in the foreground, and the printer counts as back only when it answers with a new boot id (`/proc/sys/kernel/random/boot_id`).
+  - `boot-b` and `boot-a` refuse while a print is running or paused (they reboot the T113 and cut the MCUs).
+  - **Serial names `/dev/k2-main`, `/dev/k2-nozzle`, `/dev/k2-rs485` by default** instead of the by-id names: slot B's gadget has other by-id names (`usb-Creality_K2_Pro_K2-OpenHost_Gadget_Serial_<serial>-…`) than slot A's stock gadget, and Klipper could not find the MCUs. The udev names match vendor, product and interface and are the same in both slots. `t113 install` installs the udev rule when it is missing and converts `printer.cfg` and the start gate; `config serial-names` now selects the udev names and `--by-id` slot A's by-id names. `config install` writes the default names in a newly copied `printer.cfg`.
+  - doctor recognises both gadgets and warns about by-id names in `printer.cfg`.
+  - SSH to the printer uses keepalives (`ServerAliveInterval`), so a session to a rebooting printer ends.
+
+- Menu 40 `[Experimental]`: adds manifest-approved custom CFS firmware selection with local SHA/identity checks and a non-bypassable `FLASH EXPERIMENTAL CFS` disclaimer before using the guarded stock Creality flash path.
+
+- CM5 helper: `t113 mcu-fw apply --cfs --cfs-image ... --cfs-sha256 ...` now verifies a local custom CFS image, uploads and re-verifies it on the T113, stops Klipper only after those checks, then delegates the actual write to the stock Creality updater and removes the transfer copy.
+
 - **Stable serial names by default.** Main, Nozzle and RS-485 are now addressed as `/dev/serial/by-id/usb-Allwinner_Technology_Inc._Gadget_Serial-if00/01/02-port0`:
   - the Kalico profile's `printer.cfg` uses them (kalico-k2pro#20), and the Klipper start gate waits for the same names;
   - why: with `/dev/ttyUSB0/1/2`, a gadget reconnect while Klipper held the old ports renumbered them to `ttyUSB2/3/4` and `FIRMWARE_RESTART` could not reconnect (K2-OpenHost USB_BRIDGE failure tests);
