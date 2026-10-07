@@ -1,6 +1,6 @@
 # Custom CFS firmware
 
-This directory contains the installer manifest for experimental CFS firmware. Firmware binaries remain outside this repository and are published in the dedicated [k2-cfs-rfid-tools firmware tree](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/main/firmware).
+I use this directory for the installer manifest of my experimental CFS firmware. Firmware binaries remain outside this repository and are published in the dedicated [k2-cfs-rfid-tools firmware tree](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/main/firmware).
 
 ## Current candidate: v3.3 / API7 stock capture
 
@@ -26,11 +26,11 @@ SHA-256:
 5bab3acff49253a54089e779ea473d2cf587db09ab0d9c07c4d6c2e31b810388
 ```
 
-This candidate is **hardware validated on the reference K2 Pro**. It exposes diagnostic API7 and keeps Creality's original RFID task as the RF owner. For Bambu fallback it temporarily substitutes the derived sector-1 Key A at the original stock authentication calls and captures only block 4 material detail plus block 5 RGBA into scratch records.
+I **hardware-validated this candidate on my K2 Pro**. It exposes diagnostic API7 and keeps Creality's original RFID task as the RF owner. For Bambu fallback it temporarily substitutes the derived sector-1 Key A at the original stock authentication calls and captures only block 4 material detail plus block 5 RGBA into scratch records.
 
 It does **not** expose tag writes, UID mutation, sector-trailer writes, OTP/lock writes or EEPROM writes, and the API7 Bambu path does not use direct host RF.
 
-Hardware validation on 2026-10-07 successfully identified a real Bambu Lab tag as:
+During my hardware validation on 2026-10-07 I successfully identified a real Bambu Lab tag as:
 
 ```text
 UID       233A111D
@@ -41,7 +41,7 @@ detail    PLA Matte
 colour    #FFFFFF
 ```
 
-The automatic path was also validated:
+I also validated the automatic path:
 
 ```text
 Creality stock read -> unknown -> API7 Bambu fallback -> Bambulab PLA Matte / #FFFFFF
