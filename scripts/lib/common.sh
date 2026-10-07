@@ -196,6 +196,25 @@ backup_file() {
     info "backup: $copy"
 }
 
+# printer_file <name.cfg>: where this printer keeps a printer file, relative to
+# the config folder. Profiles since kalico-k2pro #40 keep them in macros/;
+# printers set up before keep them in the config root until moved.
+printer_file() {
+    local name="$1" pcfg="${CONFIG_DIR}/printer.cfg" re
+    re="${name//./\\.}"
+    if [[ -f "$pcfg" ]] && grep -Eq "^#?[[:space:]]*\[include[[:space:]]+(\./)?${re}\]" "$pcfg"; then
+        echo "$name"
+    elif [[ -f "$pcfg" ]] && grep -Eq '^\[include[[:space:]]+macros/print\.cfg\]' "$pcfg"; then
+        echo "macros/$name"
+    elif [[ -f "$pcfg" ]] && grep -Eq '^\[include[[:space:]]+(macros|start_print)\.cfg\]' "$pcfg"; then
+        echo "$name"
+    elif [[ -d "${KLIPPER_DIR}/config/k2/macros" ]]; then
+        echo "macros/$name"
+    else
+        echo "$name"
+    fi
+}
+
 # render_template <src> <dst>: replace @USER@, @HOME@, @PRINTER_DATA@ ...
 render_template() {
     local src="$1" dst="$2"

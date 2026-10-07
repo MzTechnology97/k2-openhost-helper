@@ -31,7 +31,8 @@ lines = open(path).read().split("\n")
 line = "[include %s]" % name
 index = len(lines)
 for i, text in enumerate(lines):
-    if text.startswith("#*# <") or text.strip().startswith("[include overrides.cfg]"):
+    if text.startswith("#*# <") or text.strip().startswith(
+            ("[include overrides.cfg]", "[include macros/overrides.cfg]")):
         index = i
         break
 lines.insert(index, line)
@@ -109,7 +110,7 @@ EOF
     info "Connect Cartographer to a host USB port: the udev rule names it /dev/k2-cartographer."
     info "PRTouch stays the validated probe; enable Cartographer only after its own tests."
     if confirm "Include cartographer.cfg in printer.cfg now?" n; then
-        add_include cartographer.cfg
+        add_include "$(printer_file cartographer.cfg)"
     fi
     mark_installed cartographer
 }
