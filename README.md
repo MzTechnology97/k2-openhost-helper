@@ -365,7 +365,7 @@ The check changes nothing. Run it by hand with `./helper.sh health`; `scripts/sy
 
 - **From Mainsail:** *Machine* → *Update Manager* updates Kalico, Moonraker, Mainsail (pre-release channel), Cartographer and this installer.
 - **From the installer:** menu 17 or `./helper.sh update`.
-- **The installer itself:** `git -C ~/k2-openhost-installer-helper pull`.
+- **The installer itself:** at every start, like KIAUH, it looks for new commits on the branch it follows. If there are any, it lists them and asks *Update the installer helper now?*; on yes it updates and restarts with the same command. It never touches local changes, and it skips the check without a terminal (timers, scripts), with `--yes` (only a notice) or with `K2OH_NO_UPDATE_CHECK=1`. By hand: `git -C ~/k2-openhost-installer-helper pull`.
 
 Updates are refused while a print is running or paused.
 

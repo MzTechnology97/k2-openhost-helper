@@ -272,6 +272,55 @@ menu() {
     done
 }
 
+# --- self-update ----------------------------------------------------------------
+# Like KIAUH: at start, look for new commits on the branch this checkout tracks
+# and offer to update. Skipped without a terminal (timers, scripts), with
+# K2OH_NO_UPDATE_CHECK=1, outside a git checkout, on a detached HEAD or a
+# branch without upstream, and when the network does not answer in 10 s.
+# --yes only reports it; local changes are never touched.
+HELPER_REPO_DIR="${K2OH_HELPER_REPO_DIR:-$HELPER_DIR}"
+HELPER_ARGS=("$@")
+
+interactive_terminal() { [[ -t 0 && -t 1 ]]; }
+
+restart_helper() {
+    K2OH_NO_UPDATE_CHECK=1 exec "$HELPER_DIR/helper.sh" "${HELPER_ARGS[@]}"
+}
+
+check_helper_update() {
+    [[ "${K2OH_NO_UPDATE_CHECK:-0}" != "1" ]] || return 0
+    interactive_terminal || return 0
+    local repo="$HELPER_REPO_DIR" upstream behind
+    git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+    git -C "$repo" symbolic-ref --quiet HEAD >/dev/null 2>&1 || return 0
+    upstream="$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || return 0
+    if ! timeout 10 git -C "$repo" fetch --quiet "${upstream%%/*}" 2>/dev/null; then
+        info "could not check for installer helper updates (no network?)"
+        return 0
+    fi
+    behind="$(git -C "$repo" rev-list --count 'HEAD..@{u}' 2>/dev/null)" || return 0
+    (( behind > 0 )) || return 0
+    step "Installer helper update available"
+    info "$behind new commit(s) on $upstream:"
+    git -C "$repo" log --oneline --no-decorate -n 10 'HEAD..@{u}' | sed 's/^/      /'
+    if [[ "$ASSUME_YES" == "1" ]]; then
+        info "unattended run (--yes): not updating; start the helper without --yes to update"
+        return 0
+    fi
+    if [[ -n "$(git -C "$repo" status --porcelain --untracked-files=no)" ]]; then
+        warn "$repo has local changes: update it by hand (git pull)"
+        return 0
+    fi
+    confirm "Update the installer helper now?" y || { info "not updated"; return 0; }
+    if ! git -C "$repo" merge --ff-only --quiet '@{u}'; then
+        warn "the update cannot fast-forward (the local branch diverged): update it by hand"
+        return 0
+    fi
+    ok "updated to $(git -C "$repo" log -1 --format='%h %s')"
+    info "restarting the helper"
+    restart_helper
+}
+
 usage() {
     cat <<EOF
 K2-OpenHost Installer Helper ${VERSION}
@@ -298,6 +347,9 @@ Usage: ./helper.sh [--yes] [command]
 
   --yes               answer yes to every question (unattended install)
 
+At start the helper checks its own repository for updates and asks before
+updating (skipped with --yes, without a terminal, or K2OH_NO_UPDATE_CHECK=1).
+
 Environment overrides: KALICO_BRANCH (default ${KALICO_BRANCH}), PRINTER_DATA,
 KLIPPER_DIR, KLIPPY_ENV, MAINSAIL_DIR, MAINSAIL_GH_REPO.
 EOF
@@ -313,6 +365,7 @@ main() {
     esac
     require_not_root
     require_debian
+    check_helper_update
     case "${1:-menu}" in
         menu) menu ;;
         install)
