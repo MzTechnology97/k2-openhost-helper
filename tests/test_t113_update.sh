@@ -31,10 +31,12 @@ remote_facts() { echo "slot=$SLOT"; }
 PRINT_STATE=standby
 curl() { echo "{\"result\":{\"status\":{\"print_stats\":{\"state\":\"$PRINT_STATE\"}}}}"; }
 REBOOT_MARK=0
+CHECK_OUT="  /usr/sbin/k2oh-slot"
 t113_ssh() {
     echo "ssh $*" >> "$TMP/log"
     case "$*" in
         *"test -f /tmp/k2oh-update-reboot"*) [[ "$REBOOT_MARK" == 1 ]] ;;
+        *"--check"*) echo "$CHECK_OUT" ;;
         *) return 0 ;;
     esac
 }
@@ -86,7 +88,18 @@ reset; ANSWERS=(y); REBOOT_MARK=0
 grep -q "update-slot-b.sh --revert --check" "$TMP/log" || fail_test "no revert check: $(cat "$TMP/log")"
 grep -q "update-slot-b.sh --revert$" "$TMP/log" || fail_test "no revert apply"
 
-# 7. A bootstrap without the update scripts: refused.
+# 7. Nothing to update: no question, nothing applied, the copy removed.
+reset; ANSWERS=(y y); CHECK_OUT="  none: slot B already runs these programs"
+( cmd_update ) >/dev/null 2>&1 || fail_test "update with nothing to do failed"
+grep -q "^confirm" "$TMP/log" && fail_test "asked although nothing changes: $(cat "$TMP/log")"
+grep -q "update-slot-b.sh $" "$TMP/log" && fail_test "applied although nothing changes"
+grep -q "rm -rf '/mnt/UDISK/k2oh-update'" "$TMP/log" || fail_test "the copy was not removed"
+reset; ANSWERS=(y); CHECK_OUT="No update to revert: slot B runs its image's programs"
+( cmd_update --revert ) >/dev/null 2>&1 || fail_test "revert with nothing to do failed"
+grep -q "^confirm" "$TMP/log" && fail_test "revert asked although nothing to revert"
+CHECK_OUT="  /usr/sbin/k2oh-slot"
+
+# 8. A bootstrap without the update scripts: refused.
 rm "$T113_DIR/update-slot-b.sh"
 reset
 ( cmd_update ) >/dev/null 2>&1 && fail_test "update accepted with an old bootstrap"

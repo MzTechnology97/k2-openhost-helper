@@ -719,7 +719,14 @@ cmd_update() {
     upload "$bundle" "$UPDATE_REMOTE_DIR"
 
     step "Checking on the printer (nothing written)"
-    t113_ssh "cd '$UPDATE_REMOTE_DIR' && sh update-slot-b.sh $revert --check"
+    local check
+    check="$(t113_ssh "cd '$UPDATE_REMOTE_DIR' && sh update-slot-b.sh $revert --check")"
+    printf '%s\n' "$check"
+    if grep -qE "none: slot B already runs these programs|No update to revert" <<<"$check"; then
+        t113_ssh "rm -rf '$UPDATE_REMOTE_DIR'"
+        ok "nothing to update"
+        return 0
+    fi
     if confirm "${revert:+Revert: }Apply these changes to slot B?" n; then
         step "Updating slot B"
         t113_ssh "cd '$UPDATE_REMOTE_DIR' && sh update-slot-b.sh $revert"
