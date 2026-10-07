@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Config: printer files in `macros/`.** With kalico-k2pro #40, `config` installs `printer.cfg` plus the printer files in `~/printer_data/config/macros/` (system, sensors, LEDs, print flow, KAMP, fans, maintenance and the modules). `printer_file` finds where a printer keeps a file: `t113 link` and `extras cartographer` write and include `k2_t113.cfg` / `cartographer.cfg` there. Printers that still include the files from the config root keep working and get a warning; an older Kalico installs the root layout as before. Tests: `tests/test_config_layout.sh`.
+
 - **T113: `t113 update [--revert]` (menu 33).** Updates K2-OpenHost's programs and boot links on a running slot B without reinstalling (T113 bootstrap 0.1.3, `update-slot-b.sh`). A reinstall goes through slot A, which flashes its own firmware files back onto the boards at boot. The helper packs the programs, uploads them with SHA-256 checks, shows the printer's `--check`, applies only on confirmation (no question when there is nothing to update) and offers a reboot when boot-time programs changed. Refused on slot A and during a print. Tests: `tests/test_t113_update.sh`.
 - `guard_idle` is shared by the slot switch and the update; `upload` takes a destination.
 

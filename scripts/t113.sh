@@ -409,7 +409,10 @@ cmd_link() {
     # Connects this host to k2oh-ctl, the control service of slot B. Safe to
     # run again: it rewrites the same files.
     connect
-    local token cfg="${CONFIG_DIR}/k2_t113.cfg" tokfile="${CONFIG_DIR}/k2oh_t113.token"
+    local inc motor_inc src
+    inc="$(printer_file k2_t113.cfg)"
+    motor_inc="$(printer_file motor_control.cfg)"
+    local token cfg="${CONFIG_DIR}/${inc}" tokfile="${CONFIG_DIR}/k2oh_t113.token"
     local mconf="${CONFIG_DIR}/moonraker_k2_t113.conf" pcfg="${CONFIG_DIR}/printer.cfg"
     step "Linking this host to the T113 control service (k2oh-ctl)"
     token="$(t113_ssh 'cat /mnt/UDISK/.k2openhost/ctl.token 2>/dev/null' | tr -d '\r\n ')"
@@ -419,12 +422,15 @@ cmd_link() {
     ok "token saved to $tokfile (readable only by you)"
 
     if [[ ! -f "$cfg" ]]; then
-        [[ -f "${KLIPPER_DIR}/config/k2/k2_t113.cfg" ]] \
+        src="${KLIPPER_DIR}/config/k2/macros/k2_t113.cfg"
+        [[ -f "$src" ]] || src="${KLIPPER_DIR}/config/k2/k2_t113.cfg"
+        [[ -f "$src" ]] \
             || die "this Kalico has no config/k2/k2_t113.cfg yet: update Kalico, then run '$0 link' again"
-        cp "${KLIPPER_DIR}/config/k2/k2_t113.cfg" "$cfg"
+        mkdir -p "$(dirname "$cfg")"
+        cp "$src" "$cfg"
     fi
     sed -i "s|^host:.*|host: ${T113_IP}          # T113 address (set by the installer helper)|" "$cfg"
-    ok "[k2_t113] host: ${T113_IP} in $(basename "$cfg")"
+    ok "[k2_t113] host: ${T113_IP} in ${inc}"
 
     (umask 077 && cat > "$mconf" <<EOF
 # K2-OpenHost: the printer's MCU power rail (T113 GPIO140) as a Moonraker power
@@ -457,14 +463,16 @@ EOF
     fi
 
     if [[ -f "${KLIPPER_DIR}/klippy/extras/k2_t113.py" ]]; then
-        if grep -q '^#\[include k2_t113.cfg\]' "$pcfg"; then
+        # The include follows the printer's layout (config root or macros/).
+        local inc_re="${inc//./\\.}" motor_re="${motor_inc//./\\.}"
+        if grep -q "^#\[include ${inc_re}\]" "$pcfg"; then
             backup_file "$pcfg"
-            sed -i 's|^#\[include k2_t113.cfg\]|[include k2_t113.cfg]|' "$pcfg"
-        elif ! grep -q '^\[include k2_t113.cfg\]' "$pcfg"; then
+            sed -i "s|^#\[include ${inc_re}\]|[include ${inc}]|" "$pcfg"
+        elif ! grep -q "^\[include ${inc_re}\]" "$pcfg"; then
             backup_file "$pcfg"
-            sed -i 's|^\[include motor_control.cfg\]|&\n[include k2_t113.cfg]|' "$pcfg"
+            sed -i "s|^\[include ${motor_re}\]|&\n[include ${inc}]|" "$pcfg"
         fi
-        ok "[include k2_t113.cfg] active in printer.cfg"
+        ok "[include ${inc}] active in printer.cfg"
     else
         warn "this Kalico has no k2_t113 module yet: the include stays off."
         warn "Update Kalico, then run '$0 link' again."
