@@ -12,6 +12,9 @@
 #                 to the T113 after SHA-256 verification
 #   link          connect this host to k2oh-ctl on the printer: token,
 #                 [k2_t113] host, Moonraker power device for the MCU rail
+#   update [--revert]
+#                 update K2-OpenHost's programs on a running slot B without
+#                 reinstalling (bootstrap 0.1.3+); --revert: the image's ones
 #
 # Slot A (the printer's current system) is never written. Slot B is built on
 # this host from Creality's own OTA image (downloaded from Creality's CDN),
@@ -38,6 +41,7 @@ K2_PRO_MODEL="F012"
 K2_PRO_BOARD="CR0CN200400C10"
 HELIX_REPO="prestonbrown/helixscreen"
 REMOTE_DIR="/mnt/UDISK/k2oh-slotb"
+UPDATE_REMOTE_DIR="/mnt/UDISK/k2oh-update"
 
 T113_IP="${T113_IP:-}"
 HOST_IP="${HOST_IP:-}"
@@ -128,16 +132,17 @@ download_helix() {
 }
 
 upload() {
-    local src="$1" name sum
-    t113_ssh "mkdir -p '$REMOTE_DIR'"
+    # upload SRC [DEST]: every file of SRC to DEST on the printer, SHA-256 checked
+    local src="$1" dest="${2:-$REMOTE_DIR}" name sum
+    t113_ssh "mkdir -p '$dest'"
     for path in "$src"/*; do
         name="$(basename "$path")"
         info "uploading ${name} ($(( $(stat -c %s "$path") / 1048576 )) MB)"
-        t113_ssh "cat > '$REMOTE_DIR/$name'" < "$path"
-        sum="$(t113_ssh "sha256sum '$REMOTE_DIR/$name'" | cut -d' ' -f1)"
+        t113_ssh "cat > '$dest/$name'" < "$path"
+        sum="$(t113_ssh "sha256sum '$dest/$name'" | cut -d' ' -f1)"
         [[ "$sum" == "$(sha256sum "$path" | cut -d' ' -f1)" ]] || die "upload of $name is corrupted"
     done
-    ok "files on the printer in ${REMOTE_DIR}"
+    ok "files on the printer in ${dest}"
 }
 
 remote_boot_id() { t113_ssh 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null | tr -d '
@@ -177,14 +182,21 @@ wait_for_printer() {
     return 1
 }
 
+guard_idle() {
+    # guard_idle WHY: refuses while a print runs or is paused; an unknown
+    # state (Klipper not ready) only warns.
+    local state
+    state="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?print_stats=state' 2>/dev/null \
+        | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"]["status"]["print_stats"]["state"])' 2>/dev/null || true)"
+    case "$state" in
+        printing|paused) die "a print is $state: $1, so do it when the printer is idle" ;;
+        "") warn "Klipper's print state is unknown (Klipper not ready): going on" ;;
+    esac
+}
+
 guard_slot_switch() {
     # A slot switch reboots the T113 and cuts the MCUs: never during a print.
-    local state
-    state="$(curl -fsS --max-time 3 'http://127.0.0.1:7125/printer/objects/query?print_stats=state' 2>/dev/null         | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"]["status"]["print_stats"]["state"])' 2>/dev/null || true)"
-    case "$state" in
-        printing|paused) die "a print is $state: the printer reboots, so switch slots when it is idle" ;;
-        "") warn "Klipper's print state is unknown (Klipper not ready): rebooting the printer anyway" ;;
-    esac
+    guard_idle "the printer reboots"
 }
 
 use_udev_serial_names() {
@@ -673,6 +685,75 @@ cmd_mcu_fw() {
     return "$rc"
 }
 
+cmd_update() {
+    # Programs only: /etc/init.d/k2oh-*, /usr/bin/k2oh-*, /usr/sbin/k2oh-*
+    # and the boot links, in slot B's writable layer. A reinstall would go
+    # through slot A, which flashes its own release's firmware onto the boards.
+    local revert="" arg applied=0
+    for arg in "$@"; do
+        case "$arg" in
+            --revert) revert="--revert" ;;
+            *) die "usage: $0 update [--revert]" ;;
+        esac
+    done
+    step "Getting the T113 bootstrap"
+    apt_install git
+    clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
+    ok "$(git -C "$T113_DIR" log -1 --format="%h %s")"
+    [[ -f "$T113_DIR/update-slot-b.sh" && -f "$T113_DIR/make-update-bundle.sh" ]] \
+        || die "this bootstrap has no program update: it needs bootstrap 0.1.3 or later"
+    connect
+    FACTS="$(remote_facts)"
+    [[ "$(fact slot)" == "B" ]] \
+        || die "the printer runs slot $(fact slot): programs are updated on a running slot B (from slot A: '$0 install')"
+    guard_idle "the update restarts the bridges"
+
+    local bundle="$WORK_DIR/update"
+    if [[ -z "$revert" ]]; then
+        step "Packing the programs"
+        bash "$T113_DIR/make-update-bundle.sh" --out "$bundle"
+    else
+        rm -rf "$bundle"
+        mkdir -p "$bundle"
+        cp "$T113_DIR/update-slot-b.sh" "$bundle/"
+    fi
+    step "Copying to the printer"
+    t113_ssh "rm -rf '$UPDATE_REMOTE_DIR'"
+    upload "$bundle" "$UPDATE_REMOTE_DIR"
+
+    step "Checking on the printer (nothing written)"
+    local check
+    check="$(t113_ssh "cd '$UPDATE_REMOTE_DIR' && sh update-slot-b.sh $revert --check")"
+    printf '%s\n' "$check"
+    if grep -qE "none: slot B already runs these programs|No update to revert" <<<"$check"; then
+        t113_ssh "rm -rf '$UPDATE_REMOTE_DIR'"
+        ok "nothing to update"
+        return 0
+    fi
+    if confirm "${revert:+Revert: }Apply these changes to slot B?" n; then
+        step "Updating slot B"
+        t113_ssh "cd '$UPDATE_REMOTE_DIR' && sh update-slot-b.sh $revert"
+        applied=1
+    fi
+    t113_ssh "rm -rf '$UPDATE_REMOTE_DIR'"
+    if (( ! applied )); then
+        info "nothing changed on the printer"
+        return 0
+    fi
+    if t113_ssh "test -f /tmp/k2oh-update-reboot"; then
+        warn "some updated programs run at boot: they take effect after a reboot of the printer"
+        if confirm "Reboot the printer now? Klipper loses the MCUs until FIRMWARE_RESTART" n; then
+            guard_idle "the printer reboots"
+            if reboot_printer; then
+                ok "the printer is back; run FIRMWARE_RESTART in Mainsail"
+            else
+                warn "the printer did not come back with a new boot yet"
+            fi
+        else
+            info "Reboot the printer when it is idle; until then the old boot-time programs run."
+        fi
+    fi
+}
 
 if [[ "${K2OH_T113_LIB_ONLY:-0}" == "1" ]]; then
     return 0 2>/dev/null || exit 0
@@ -688,5 +769,6 @@ case "${1:-}" in
     host) cmd_host "${2:-}" ;;
     mcu-fw) shift; cmd_mcu_fw "$@" ;;
     link) cmd_link ;;
-    *) sed -n '2,13p' "$0"; exit 2 ;;
+    update) shift; cmd_update "$@" ;;
+    *) sed -n '2,17p' "$0"; exit 2 ;;
 esac

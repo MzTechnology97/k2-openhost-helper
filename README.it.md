@@ -227,6 +227,7 @@ KAMP non viene installato a parte: è già integrato in Kalico e lo configura `k
 | 30 | MCU firmware status | Versioni delle schede sulla stampante e file firmware che lo slot B scriverebbe. |
 | 31 | Update MCU firmware | Scarica l'ultima versione Creality, la prepara, mostra cosa cambia e aggiorna solo se confermi. Se la stampante è inattiva propone di fermare Klipper su questo host, poi passa alla stampante una prova che le porte del gadget sono libere (serve `sudo`); gli stati sconosciuti bloccano. Passo per passo: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (vedi la guida). |
 | 32 | Link the T113 controls | Collega questo host a `k2oh-ctl` sullo slot B. Copia il token condiviso in `~/printer_data/config/k2oh_t113.token`, imposta `host` in `k2_t113.cfg` e scrive il dispositivo di alimentazione Moonraker `K2_MCU_Power` (`moonraker_k2_t113.conf`). Attiva `[include k2_t113.cfg]` solo se il Kalico installato ha il modulo. Viene proposto anche durante l'installazione. |
+| 33 | Update the T113 programs | Sullo slot B in uso aggiorna i programmi di K2-OpenHost (`/etc/init.d/k2oh-*`, `/usr/bin/k2oh-*`, `/usr/sbin/k2oh-*`) e i collegamenti di avvio senza reinstallare, quindi le schede tengono il loro firmware. Mostra prima il `--check` della stampante e applica solo se confermi; i programmi che lavorano all'avvio richiedono un riavvio, che propone. Rifiutato durante una stampa. `./helper.sh t113 update --revert` torna ai programmi dell'immagine. Serve il bootstrap 0.1.3 o successivo. |
 | 40 | Experimental CFS firmware | Mostra i candidati approvati dal manifest in `firmware/custom-cfs/`, verifica SHA-256 e target hardware/applicazione, quindi mostra un disclaimer esplicito. Per continuare bisogna digitare `FLASH EXPERIMENTAL CFS`; `--yes` non può bypassare questa conferma. Il flash effettivo resta affidato agli strumenti Creality stock. |
 
 Le voci già installate mostrano `[installed]`. Se un passaggio fallisce, il menu mostra l'errore e resta aperto.
@@ -249,6 +250,8 @@ La scheda T113 della stampante esegue i bridge USB gadget verso questo host. Il 
 4. salva l'IP di questo host per HelixScreen e `k2oh-mcu-fw`.
 
 **3. Avvio di prova** (voce 26). Lo slot B si avvia una volta. Se non parte, spegni e riaccendi la stampante e torna allo slot A. Al primo avvio HelixScreen si installa da solo, già collegato a questo host. Collega il cavo Micro-USB di servizio e controlla Mainsail, poi **tieni lo slot B** (voce 27). La voce 28 torna allo slot A in qualsiasi momento.
+
+**Aggiornare lo slot B in seguito** (voce 33, `./helper.sh t113 update`): i programmi di K2-OpenHost si aggiornano sullo slot B in uso, senza reinstallare dallo slot A, che all'avvio riscriverebbe sulle schede i file firmware della sua versione.
 
 **4. Firmware di MCU, motori e CFS** (voce 31, `./helper.sh t113 mcu-fw update`):
 1. scarica l'ultima versione Creality e tiene solo i file firmware;
