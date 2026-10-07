@@ -21,6 +21,19 @@ SHA="$(sha256sum "$IMAGE" | awk '{print $1}')"
 ) >/dev/null 2>&1 && fail_test "wrong SHA accepted"
 [[ ! -e "$TMP/unexpected-ssh" ]] || fail_test "SSH used before local SHA validation"
 
+
+# The installed T113 bootstrap must provide both the custom-image option and
+# the newer fail-closed container/result guards before any image is staged.
+(
+  CALL=0
+  t113_ssh() {
+    CALL=$((CALL + 1))
+    if (( CALL == 1 )); then return 0; fi
+    return 1
+  }
+  stage_custom_cfs_image "$IMAGE" "$SHA"
+) >/dev/null 2>&1 && fail_test "custom CFS accepted without the new T113 safety guards"
+
 # cmd_mcu_fw must upload/replace the local path before Klipper is stopped,
 # then pass the remote path to k2oh-mcu-fw with quoted host evidence.
 (

@@ -18,3 +18,7 @@ jobs:
         run: bash tests/test_t113_reboot.sh
       - name: Helper self-update tests
         run: bash tests/test_helper_self_update.sh
+      - name: T113 program update tests
+        run: bash tests/test_t113_update.sh
+      - name: Config layout tests
+        run: bash tests/test_config_layout.sh

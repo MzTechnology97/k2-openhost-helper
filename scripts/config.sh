@@ -5,19 +5,42 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
 PROFILE_DIR="${KLIPPER_DIR}/config/k2"
-PROFILE_FILES=(
-    printer.cfg
-    box.cfg
-    macros.cfg
-    start_print.cfg
-    motor_control.cfg
-    k2_t113.cfg
-    prtouch.cfg
-    kamp.cfg
-    timelapse.cfg
-    overrides.cfg
-    cartographer.cfg
-)
+if [[ -d "$PROFILE_DIR/macros" ]]; then
+    # printer.cfg keeps the hardware; the printer files live in macros/.
+    PROFILE_FILES=(
+        printer.cfg
+        timelapse.cfg
+        macros/system.cfg
+        macros/sensors.cfg
+        macros/leds.cfg
+        macros/print.cfg
+        macros/kamp.cfg
+        macros/fans.cfg
+        macros/maintenance.cfg
+        macros/openhost_controls.cfg
+        macros/box.cfg
+        macros/motor_control.cfg
+        macros/k2_t113.cfg
+        macros/prtouch.cfg
+        macros/cartographer.cfg
+        macros/overrides.cfg
+    )
+else
+    # Kalico before kalico-k2pro #40: everything in the config root.
+    PROFILE_FILES=(
+        printer.cfg
+        box.cfg
+        macros.cfg
+        start_print.cfg
+        motor_control.cfg
+        k2_t113.cfg
+        prtouch.cfg
+        kamp.cfg
+        timelapse.cfg
+        overrides.cfg
+        cartographer.cfg
+    )
+fi
 
 require_profile() {
     [[ -d "$PROFILE_DIR" ]] || die "$PROFILE_DIR not found: install Kalico first."
@@ -32,6 +55,7 @@ install_config() {
     for file in "${PROFILE_FILES[@]}"; do
         [[ -f "$PROFILE_DIR/$file" ]] || { warn "$file is not in the profile, skipped"; continue; }
         target="$CONFIG_DIR/$file"
+        mkdir -p "$(dirname "$target")"
         if [[ ! -e "$target" ]]; then
             cp "$PROFILE_DIR/$file" "$target"
             ok "$file"
@@ -49,6 +73,11 @@ install_config() {
     if (( ${#pending[@]} )); then
         warn "kept your version of: ${pending[*]}"
         info "the profile version was saved next to each one as <file>.k2oh-new; compare with: $0 diff"
+    fi
+    if [[ -d "$PROFILE_DIR/macros" && "$(printer_file print.cfg)" == "print.cfg" ]]; then
+        warn "your printer.cfg still includes printer files from the config root;"
+        warn "the profile keeps them in macros/ (printer.cfg.k2oh-new shows the includes)."
+        info "Move them into macros/ and update the [include] lines, or install the profile with --force."
     fi
 
     step "Serial paths"
