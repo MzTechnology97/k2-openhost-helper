@@ -338,13 +338,28 @@ Per convertire un `printer.cfg` più vecchio: il menu 19 (`./helper.sh config se
 | Sezione | Cosa controlla |
 | --- | --- |
 | Host | Sistema operativo, gruppi seriali del tuo utente, ModemManager. |
-| T113 USB gadget | Il gadget della K2 è collegato, ogni canale (Main MCU, Nozzle MCU, RS-485/CFS) corrisponde al dispositivo usato in `printer.cfg` e nessun altro processo usa i canali. |
+| T113 USB gadget | Il gadget della K2 è collegato, ogni canale (Main MCU, Nozzle MCU, RS-485/CFS) corrisponde al dispositivo usato in `printer.cfg`, nessun altro processo usa i canali e il binding di usbserial resta dopo un riavvio. |
 | Services | Klipper, Moonraker e nginx attivi, più i servizi opzionali; l'attesa all'avvio di Klipper è installata. |
 | Software | Repository, ramo e commit di Kalico; versione di Mainsail installata. |
 | Cartographer | È installato il plugin ufficiale (non il vecchio fork K2-OpenHost) ed esiste un solo loader. |
-| Klipper and the CFS | Stato di Klipper, driver e modalità del CFS, file della libreria filamenti, stato del collegamento RS-485. |
+| Klipper and the CFS | Stato di Klipper, driver e modalità del CFS, unità CFS online, motori a circuito chiuso pronti, file della libreria filamenti, stato del collegamento RS-485. |
 
 L'esempio qui sopra è stato preso sulla macchina di riferimento: segnala ModemManager in esecuzione e Crowsnest installato ma fermo.
+
+### Controllo automatico dopo i riavvii e gli aggiornamenti
+
+Il menu 3 (`scripts/system.sh install`, oppure da solo `scripts/system.sh health-install`) installa un controllo che parte da sé:
+
+- **a ogni avvio** (`k2oh-health@boot.service`): attende fino a 4 minuti Klipper e l'avvio dei motori, poi esegue il doctor;
+- **dopo ogni modifica di apt/dpkg** (`/etc/apt/apt.conf.d/99k2openhost-health` avvia `k2oh-health@apt.service` senza bloccare apt). Segnala anche quando serve un riavvio, e fallisce se il kernel più recente installato non ha il modulo `usbserial`, perché dopo il riavvio i canali del T113 non tornerebbero.
+
+Il risultato:
+
+- compare nella **console di Klipper** in Mainsail (`K2-OpenHost check after boot: OK.`, oppure i problemi in rosso);
+- resta in `printer_data/logs/k2oh-health.log`;
+- con `K2OH_HEALTH_NOTIFY_CMD="..."` in `printer_data/systemd/k2oh-health.env`, un tuo comando (Telegram, apprise, mail) riceve il riepilogo come argomento.
+
+Il controllo non modifica nulla. Si esegue a mano con `./helper.sh health`; `scripts/system.sh health-remove` lo rimuove.
 
 ## Aggiornamenti
 

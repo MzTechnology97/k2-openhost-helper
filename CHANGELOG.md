@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Automatic check after boots and updates.** `k2oh-health@boot.service` and an apt hook (`k2oh-health@apt.service`) run the doctor and report in the Klipper console, in `printer_data/logs/k2oh-health.log`, and optionally through `K2OH_HEALTH_NOTIFY_CMD`.
+  - After apt it also flags a pending reboot, and fails when the newest kernel has no `usbserial`.
+  - Installed by `scripts/system.sh install` (menu 3) or `health-install`; `./helper.sh health` runs it by hand.
+- The doctor also checks the persistent usbserial binding, the CFS units online and the closed-loop motor startup.
 - **Update check at start, like KIAUH.** The helper fetches the branch it follows (10 s timeout), lists the new commits and asks before updating (`git merge --ff-only`), then restarts with the same arguments. It is skipped without a terminal, with `K2OH_NO_UPDATE_CHECK=1`, outside a git checkout, on a detached HEAD or without upstream; `--yes` only reports it; local changes are never touched. Tests: `tests/test_helper_self_update.sh`.
 - **Config: printer files in `macros/`.** With kalico-k2pro #40, `config` installs `printer.cfg` plus the printer files in `~/printer_data/config/macros/` (system, sensors, LEDs, print flow, KAMP, fans, maintenance and the modules). `printer_file` finds where a printer keeps a file: `t113 link` and `extras cartographer` write and include `k2_t113.cfg` / `cartographer.cfg` there. Printers that still include the files from the config root keep working and get a warning; an older Kalico installs the root layout as before. Tests: `tests/test_config_layout.sh`.
 

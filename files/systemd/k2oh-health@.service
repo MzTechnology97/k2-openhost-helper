@@ -1,0 +1,17 @@
+# Installed by k2-openhost-installer-helper
+# K2-OpenHost check after a boot (k2oh-health@boot) or a package update
+# (k2oh-health@apt, started by /etc/apt/apt.conf.d/99k2openhost-health).
+[Unit]
+Description=K2-OpenHost check after %i
+After=network-online.target moonraker.service klipper.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+Environment=NO_COLOR=1
+ExecStart=/bin/bash @HELPER_DIR@/scripts/health.sh %i
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
