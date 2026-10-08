@@ -139,7 +139,26 @@ cmd_apply --t113 >/dev/null 2>&1 || fail_test "apply --t113 failed"
 grep -q "t113 $T113_SHA" "$TMP/log" || fail_test "T113 update not pinned"
 ( cmd_apply --bogus ) >/dev/null 2>&1 && fail_test "unknown option accepted"
 
-# 10. Invalid manifest: refused.
+# 10. Mainsail built from source (upstream release_info.json): compared by
+#     the source checkout's commit; not comparable means asked, default no.
+export MAINSAIL_SRC_DIR="$TMP/mainsail-src"
+git clone -q -b k2-pro-openhost "$TMP/origin.git" "$MAINSAIL_SRC_DIR"
+git -C "$MAINSAIL_SRC_DIR" reset -q --hard "$C1"
+set_mainsail v2.19.0
+reset
+out="$(cmd_status 2>&1)"
+grep -q "Mainsail .*source ${C1:0:7}.*on the release" <<<"$out" || fail_test "source build status: $out"
+cmd_apply >/dev/null 2>&1 || fail_test "apply on a source build failed"
+grep -q "mainsail v" "$TMP/log" && fail_test "source build on the release reinstalled"
+reset; git -C "$MAINSAIL_SRC_DIR" merge -q --ff-only "$C2"
+cmd_apply >/dev/null 2>&1 || fail_test "apply on a newer source build failed"
+grep -q "mainsail v" "$TMP/log" && fail_test "newer source build replaced"
+reset; rm -rf "$MAINSAIL_SRC_DIR"; ANSWERS=()
+cmd_apply >/dev/null 2>&1 || fail_test "apply on an unknown build failed"
+grep -q "confirm Install Mainsail" "$TMP/log" || fail_test "unknown build not asked"
+grep -q "mainsail v" "$TMP/log" && fail_test "unknown build replaced without a yes"
+
+# 11. Invalid manifest: refused.
 write_manifest "not-a-sha"
 ( cmd_status ) >/dev/null 2>&1 && fail_test "invalid manifest accepted"
 
