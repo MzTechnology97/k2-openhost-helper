@@ -7,7 +7,18 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 MAINSAIL_SRC_DIR="${MAINSAIL_SRC_DIR:-${HOME}/mainsail-k2openhost-src}"
 
 latest_zip_url() {
-    # Newest release (pre-releases included) that carries mainsail.zip.
+    # Newest release (pre-releases included) that carries mainsail.zip, or
+    # the one tagged MAINSAIL_RELEASE_TAG (helper.sh release apply).
+    if [[ -n "${MAINSAIL_RELEASE_TAG:-}" ]]; then
+        curl -fsSL "https://api.github.com/repos/${MAINSAIL_GH_REPO}/releases/tags/${MAINSAIL_RELEASE_TAG}" 2>/dev/null             | python3 -c '
+import json, sys
+release = json.load(sys.stdin)
+for asset in release.get("assets", []):
+    if asset.get("name") == "mainsail.zip":
+        print(release["tag_name"], asset["browser_download_url"])
+' 2>/dev/null || true
+        return 0
+    fi
     curl -fsSL "https://api.github.com/repos/${MAINSAIL_GH_REPO}/releases?per_page=20" 2>/dev/null \
         | python3 -c '
 import json, sys
@@ -75,6 +86,7 @@ install_mainsail() {
         unzip -q "$tmp/mainsail.zip" -d "${MAINSAIL_DIR}.new"
         rm -rf "$tmp"
     else
+        [[ -z "${MAINSAIL_RELEASE_TAG:-}" ]]             || die "release ${MAINSAIL_RELEASE_TAG} of ${MAINSAIL_GH_REPO} has no mainsail.zip: Mainsail not changed"
         warn "no prebuilt release found for ${MAINSAIL_GH_REPO}"
         build_from_source
     fi

@@ -228,6 +228,8 @@ KAMP is not installed separately: Kalico already includes it, and the K2 profile
 | 31 | Update MCU firmware | Downloads the latest Creality release, stages it, shows what changes and flashes only if you confirm. When the printer is idle it offers to stop Klipper on this host, then passes the printer a proof that the gadget ports are free (`sudo` is needed); unknown states block. Step by step: `./helper.sh t113 mcu-fw list\|download\|stage\|apply` (see the guide). |
 | 32 | Link the T113 controls | Connects this host to `k2oh-ctl` on slot B. It copies the shared token to `~/printer_data/config/k2oh_t113.token`, sets `host` in `k2_t113.cfg` (in `macros/` or the config root, as the printer keeps it) and writes the Moonraker power device `K2_MCU_Power` (`moonraker_k2_t113.conf`). It turns the `k2_t113.cfg` include on only when the installed Kalico has the module. The install offers it too. |
 | 33 | Update the T113 programs | On a running slot B, updates K2-OpenHost's programs (`/etc/init.d/k2oh-*`, `/usr/bin/k2oh-*`, `/usr/sbin/k2oh-*`) and boot links without reinstalling, so the boards keep their firmware. It shows the printer's `--check` first and applies only if you confirm; boot-time programs need a reboot, which it offers. Refused during a print. `./helper.sh t113 update --revert` goes back to the image's programs. Needs bootstrap 0.1.3 or later. |
+| 34 | Release status | Compares what is installed (Kalico checkout, Mainsail build, this installer, the T113 bootstrap checkout) with the latest K2-OpenHost release: the commits validated together on the reference printer. Read-only. See [Releases](#releases). |
+| 35 | Apply the release | Brings Kalico and Mainsail to the release. See [Releases](#releases). |
 | 40 | Experimental CFS firmware | Lists manifest-approved candidates from `firmware/custom-cfs/`, verifies SHA-256 and hardware/application target, then shows an explicit risk disclaimer. Continuing requires typing `FLASH EXPERIMENTAL CFS`; `--yes` cannot bypass it. The actual flash remains delegated to Creality stock tools. |
 
 Entries already installed show `[installed]`. If a step fails, the menu shows the error and stays open.
@@ -370,6 +372,16 @@ The check changes nothing. Run it by hand with `./helper.sh health`; `scripts/sy
 - **The installer itself:** at every start, like KIAUH, it looks for new commits on the branch it follows. If there are any, it lists them and asks *Update the installer helper now?*; on yes it updates and restarts with the same command. It never touches local changes, and it skips the check without a terminal (timers, scripts), with `--yes` (only a notice) or with `K2OH_NO_UPDATE_CHECK=1`. By hand: `git -C ~/k2-openhost-installer-helper pull`.
 
 Updates are refused while a print is running or paused.
+
+### Releases
+
+The branches above move with every merge. A **release** is the set of component commits validated together on the reference printer, listed in [`releases/stable.json`](https://github.com/MzTechnology97/K2-OpenHost/blob/main/releases/stable.json) of the K2-OpenHost repository with the firmware it was tested with.
+
+- `./helper.sh release status` (menu 34): each component against the release (`on the release`, `N commit(s) behind`, `newer than the release`). It only fetches the Git checkouts.
+- `./helper.sh release apply` (menu 35): fast-forwards Kalico to the release commit and installs the release's Mainsail build. A component newer than the release, on another branch or with local changes is left as it is: nothing is downgraded or overwritten. Refused during a print. Klipper is restarted only if you confirm and only with every heater off; otherwise the old code keeps running until you restart it.
+- `./helper.sh release apply --t113` also updates the T113 programs to the release's bootstrap (the same `--check` and confirmation as menu 33).
+
+`K2OH_RELEASE_MANIFEST` points to another manifest (a file or a URL).
 
 ## Backup and restore
 
