@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Config: RFID extras.** `config` also installs `macros/box_rfid_diag.cfg`, `macros/box_rfid_bambu.cfg` and `macros/box_rfid_mifare.cfg` (kalico-k2pro #44). The generic `printer.cfg` keeps their includes commented out: they need the API7 CFS RFID firmware. Without the files, a printer that enables the includes would not start.
 - **Automatic check after boots and updates.** `k2oh-health@boot.service` and an apt hook (`k2oh-health@apt.service`) run the doctor and report in the Klipper console, in `printer_data/logs/k2oh-health.log`, and optionally through `K2OH_HEALTH_NOTIFY_CMD`.
   - After apt it also flags a pending reboot, and fails when the newest kernel has no `usbserial`.
   - Installed by `scripts/system.sh install` (menu 3) or `health-install`; `./helper.sh health` runs it by hand.
