@@ -205,6 +205,8 @@ do_choice() {
         31) run t113.sh mcu-fw update ;;
         32) run t113.sh link ;;
         33) run t113.sh update ;;
+        34) run release.sh status ;;
+        35) require_sudo; run release.sh apply ;;
         40) experimental_cfs_menu ;;
         0|q|Q) exit 0 ;;
         *) warn "invalid choice" ;;
@@ -256,6 +258,11 @@ menu() {
         item 31 "Update MCU firmware" "latest Creality release; flashes only if you confirm"
         item 32 "Link the T113 controls" "buzzer, MCU power rail, telemetry (k2oh-ctl)"
         item 33 "Update the T113 programs" "slot B, no reinstall; the boards keep their firmware"
+        echo
+        printf '  %s[K2-OpenHost release]%s
+' "$C_WHITE" "$C_NC"
+        item 34 "Release status" "installed versions against the validated release"
+        item 35 "Apply the release" "Kalico and Mainsail to the release; no downgrade, idle only"
         echo
         printf '  %s[Experimental]%s\n' "$C_YELLOW" "$C_NC"
         item 40 "Experimental CFS firmware" "custom CFS image; explicit risk disclaimer required"
@@ -342,6 +349,11 @@ Usage: ./helper.sh [--yes] [command]
   t113 <command>      printer T113 bootstrap: check | install | status | boot-b |
                       commit | boot-a | host [IP] | mcu-fw <args> | link |
                       update [--revert]
+  release status      installed versions against the K2-OpenHost release
+                      (component commits validated together)
+  release apply [--t113]
+                      bring Kalico and Mainsail to the release (no downgrade,
+                      never during a print); --t113 also the T113 programs
   experimental-cfs    select a manifest-approved experimental CFS image;
                       always requires the explicit risk acknowledgement phrase
 
@@ -351,7 +363,8 @@ At start the helper checks its own repository for updates and asks before
 updating (skipped with --yes, without a terminal, or K2OH_NO_UPDATE_CHECK=1).
 
 Environment overrides: KALICO_BRANCH (default ${KALICO_BRANCH}), PRINTER_DATA,
-KLIPPER_DIR, KLIPPY_ENV, MAINSAIL_DIR, MAINSAIL_GH_REPO.
+KLIPPER_DIR, KLIPPY_ENV, MAINSAIL_DIR, MAINSAIL_GH_REPO, K2OH_RELEASE_MANIFEST
+(release manifest file or URL).
 EOF
 }
 
@@ -384,6 +397,9 @@ main() {
         backup) run backup.sh backup ;;
         restore) require_sudo; run backup.sh restore ;;
         t113) run t113.sh "${@:2}" ;;
+        release)
+            [[ "${2:-status}" == status ]] || require_sudo
+            run release.sh "${@:2}" ;;
         experimental-cfs) experimental_cfs_menu ;;
         *) usage; return 2 ;;
     esac

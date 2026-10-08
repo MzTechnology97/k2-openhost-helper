@@ -754,6 +754,11 @@ cmd_update() {
     step "Getting the T113 bootstrap"
     apt_install git
     clone_or_update "$T113_REPO" "$T113_DIR" "$T113_BRANCH"
+    if [[ -n "${K2OH_T113_REF:-}" ]]; then
+        # A K2-OpenHost release pins the bootstrap commit (helper.sh release
+        # apply --t113); the next plain update returns to the branch.
+        git -C "$T113_DIR" checkout -q --detach "$K2OH_T113_REF"             || die "bootstrap commit ${K2OH_T113_REF:0:8} not found in $T113_DIR"
+    fi
     ok "$(git -C "$T113_DIR" log -1 --format="%h %s")"
     [[ -f "$T113_DIR/update-slot-b.sh" && -f "$T113_DIR/make-update-bundle.sh" ]] \
         || die "this bootstrap has no program update: it needs bootstrap 0.1.3 or later"

@@ -99,7 +99,13 @@ reset; ANSWERS=(y); CHECK_OUT="No update to revert: slot B runs its image's prog
 grep -q "^confirm" "$TMP/log" && fail_test "revert asked although nothing to revert"
 CHECK_OUT="  /usr/sbin/k2oh-slot"
 
-# 8. A bootstrap without the update scripts: refused.
+# 8. A release pin (helper.sh release apply --t113) to a commit the checkout
+#    does not have: refused before anything is copied.
+reset
+( K2OH_T113_REF=0123456789012345678901234567890123456789 cmd_update ) >/dev/null 2>&1     && fail_test "update accepted with an unknown pinned commit"
+grep -q upload "$TMP/log" && fail_test "copied with an unknown pinned commit"
+
+# 9. A bootstrap without the update scripts: refused.
 rm "$T113_DIR/update-slot-b.sh"
 reset
 ( cmd_update ) >/dev/null 2>&1 && fail_test "update accepted with an old bootstrap"
