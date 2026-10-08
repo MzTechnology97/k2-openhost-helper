@@ -15,6 +15,8 @@
 #   update [--revert]
 #                 update K2-OpenHost's programs on a running slot B without
 #                 reinstalling (bootstrap 0.1.3+); --revert: the image's ones
+#   timezone      give slot B this host's time zone (also done by boot-b,
+#                 commit and update)
 #
 # Slot A (the printer's current system) is never written. Slot B is built on
 # this host from Creality's own OTA image (downloaded from Creality's CDN),
@@ -480,6 +482,49 @@ EOF
     info "Restart Moonraker and Klipper to load the changes (menu 22)."
 }
 
+host_timezone() {
+    # This host's IANA zone and its POSIX TZ string, one per line, e.g.
+    # Europe/Rome and CET-1CEST,M3.5.0,M10.5.0/3 (last line of the zoneinfo
+    # file, the form OpenWrt's uci system.timezone takes).
+    local zone posix
+    zone="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
+    [[ -n "$zone" ]] || zone="$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##')"
+    [[ -n "$zone" && -f "/usr/share/zoneinfo/$zone" ]] || return 1
+    posix="$(tail -n 1 "/usr/share/zoneinfo/$zone")"
+    [[ "$zone" =~ ^[A-Za-z0-9_+./-]+$ && "$posix" =~ ^[A-Za-z0-9\<\>+,./:-]+$ ]] || return 1
+    printf '%s\n%s\n' "$zone" "$posix"
+}
+
+sync_timezone() {
+    # The T113 ships set to China time (Asia/Shanghai, CST-8): its logs
+    # (HelixScreen, k2oh-*) could not be lined up with this host's. Slot B gets
+    # this host's zone; uci keeps it in slot B's persistent layer and
+    # /etc/init.d/system applies it now. The clock itself comes from NTP.
+    local tz zone posix current
+    if ! tz="$(host_timezone)"; then
+        warn "cannot read this host's time zone; the printer's is left as it is"
+        return 0
+    fi
+    zone="$(sed -n 1p <<<"$tz")"
+    posix="$(sed -n 2p <<<"$tz")"
+    current="$(t113_ssh "uci -q get system.@system[0].zonename" 2>/dev/null || true)"
+    if [[ "$current" == "$zone" ]]; then
+        ok "printer time zone: $zone"
+        return 0
+    fi
+    t113_ssh "uci set system.@system[0].zonename='$zone' && uci set system.@system[0].timezone='$posix' && uci commit system && /etc/init.d/system reload" \
+        || { warn "could not set the printer's time zone"; return 0; }
+    ok "printer time zone: $zone (was ${current:-not set})"
+}
+
+cmd_timezone() {
+    connect
+    FACTS="$(remote_facts)"
+    [[ "$(fact slot)" == "B" ]] \
+        || die "the printer runs slot $(fact slot): only slot B is changed (slot A is the stock system)"
+    sync_timezone
+}
+
 cmd_boot_b() {
     guard_slot_switch
     connect
@@ -488,6 +533,7 @@ cmd_boot_b() {
         FACTS="$(remote_facts)"
         if [[ "$(fact slot)" == "B" ]]; then
             ok "slot B is running (K2-OpenHost $(fact k2oh))"
+            sync_timezone
             t113_ssh "k2oh-setup status" || true
             info "Check that Klipper on this host connects (Mainsail), then keep slot B with:"
             info "  $0 commit"
@@ -502,6 +548,7 @@ cmd_boot_b() {
 cmd_commit() {
     connect
     t113_ssh "k2oh-slot commit"
+    sync_timezone
 }
 
 cmd_boot_a() {
@@ -715,6 +762,7 @@ cmd_update() {
     [[ "$(fact slot)" == "B" ]] \
         || die "the printer runs slot $(fact slot): programs are updated on a running slot B (from slot A: '$0 install')"
     guard_idle "the update restarts the bridges"
+    sync_timezone
 
     local bundle="$WORK_DIR/update"
     if [[ -z "$revert" ]]; then
@@ -778,5 +826,6 @@ case "${1:-}" in
     mcu-fw) shift; cmd_mcu_fw "$@" ;;
     link) cmd_link ;;
     update) shift; cmd_update "$@" ;;
-    *) sed -n '2,17p' "$0"; exit 2 ;;
+    timezone) cmd_timezone ;;
+    *) sed -n '2,19p' "$0"; exit 2 ;;
 esac

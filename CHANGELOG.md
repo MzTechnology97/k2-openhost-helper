@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **T113 time zone from the host.** The T113 ships on China time (`Asia/Shanghai`, `CST-8`), so the printer's logs did not line up with the host's. `t113 timezone` sets slot B to this host's zone through `uci` (IANA name and POSIX string from the host's zoneinfo, applied with `/etc/init.d/system reload`, kept in slot B's persistent layer); `boot-b`, `commit` and `update` do it too. Slot A is never written; an unreadable host zone only warns. Tests: `tests/test_t113_timezone.sh`.
 - **Config: RFID extras.** `config` also installs `macros/box_rfid_diag.cfg`, `macros/box_rfid_bambu.cfg` and `macros/box_rfid_mifare.cfg` (kalico-k2pro #44). The generic `printer.cfg` keeps their includes commented out: they need the API7 CFS RFID firmware. Without the files, a printer that enables the includes would not start.
 - **Automatic check after boots and updates.** `k2oh-health@boot.service` and an apt hook (`k2oh-health@apt.service`) run the doctor and report in the Klipper console, in `printer_data/logs/k2oh-health.log`, and optionally through `K2OH_HEALTH_NOTIFY_CMD`.
   - After apt it also flags a pending reboot, and fails when the newest kernel has no `usbserial`.
