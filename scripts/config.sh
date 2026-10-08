@@ -19,6 +19,9 @@ if [[ -d "$PROFILE_DIR/macros" ]]; then
         macros/maintenance.cfg
         macros/openhost_controls.cfg
         macros/box.cfg
+        macros/box_rfid_diag.cfg
+        macros/box_rfid_bambu.cfg
+        macros/box_rfid_mifare.cfg
         macros/motor_control.cfg
         macros/k2_t113.cfg
         macros/prtouch.cfg

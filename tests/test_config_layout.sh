@@ -37,9 +37,11 @@ printf '[include macros.cfg]\n[include start_print.cfg]\n[include motor_control.
 setup
 mkdir -p "$KLIPPER_DIR/config/k2/macros"
 printf '[mcu]\nserial: /dev/x\n[include macros/print.cfg]\n' > "$KLIPPER_DIR/config/k2/printer.cfg"
-for f in print box k2_t113 overrides; do echo "[$f]" > "$KLIPPER_DIR/config/k2/macros/$f.cfg"; done
+for f in print box box_rfid_diag box_rfid_bambu box_rfid_mifare k2_t113 overrides; do
+    echo "[$f]" > "$KLIPPER_DIR/config/k2/macros/$f.cfg"
+done
 out="$(bash "$ROOT/scripts/config.sh" install 2>&1)" || fail_test "install failed: $out"
-for f in print box k2_t113 overrides; do
+for f in print box box_rfid_diag box_rfid_bambu box_rfid_mifare k2_t113 overrides; do
     [[ -f "$PRINTER_DATA/config/macros/$f.cfg" ]] || fail_test "macros/$f.cfg not installed: $out"
     [[ ! -e "$PRINTER_DATA/config/$f.cfg" ]] || fail_test "$f.cfg in the config root"
 done
