@@ -2,6 +2,70 @@
   "schema": 1,
   "candidates": [
     {
+      "id": "k2-cfs-runtime-config-v3.13",
+      "filename": "cfs0_050_G32-cfs0_000_153-runtime-config-v3_13.bin",
+      "sha256": "9a68dd8205956dda58bc3108b265fdbc03756e70974ee9a8b1ee5afc3ce46aff",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS v3.13: v3.12 plus volatile runtime motion configuration API for six proven load/unload speed parameters; idle-only RAM writes; no EEPROM writes; no tag writes"
+    },
+    {
+      "id": "k2-cfs-rfid-remaining-v3.12",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-remaining-v3_12.bin",
+      "sha256": "fe436e33a3b86339673b559d345703593e1a8e9ec3237261027e9ae48d048198",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID v3.12: pre-geometry K2RL latch set on third API7 read success so stock geometry/type4 remaining can initialize before host CLEAR; 330m nominal; no tag writes"
+    },
+    {
+      "id": "k2-cfs-rfid-remaining-v3.11",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-remaining-v3_11.bin",
+      "sha256": "f99e8d1af58e027a037cf79079830512b1f0fda6d100b6ee105c191d05082ff7",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID v3.11: v3.10 plus transient K2RL post-clear latch so stock geometry/type4 remaining survives API7 CLEAR timing; 330m nominal; no tag writes"
+    },
+    {
+      "id": "k2-cfs-rfid-remaining-v3.10",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-remaining-v3_10.bin",
+      "sha256": "54717ba9d858dc39d86341afeea81cc026a61f75b5a152a18f6c4a433b748eb7",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID v3.10: v3.9 plus guarded remaining gate override at 0x08013380 after complete active-slot API7 capture; stock geometry/type4 remaining, 330m nominal; no tag writes"
+    },
+    {
+      "id": "k2-cfs-rfid-remaining-v3.9",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-remaining-v3_9.bin",
+      "sha256": "0dbbd58de26f77b1441a63f33d87f6bf4bcdeaada95f5b979661eb3ba79223df",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID v3.9: v3.8 remaining fix; recovers stock geometric area_percent from 0x20003974+slot when third-party r9 gate passes 0xFF; 330m nominal; no tag writes"
+    },
+    {
+      "id": "k2-cfs-rfid-remaining-v3.8",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-remaining-v3_8.bin",
+      "sha256": "9aa8f79ed0fd5cc8e378b16182f72e8617ee4e5c9c0d200d0cadc379c26c13fa",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID v3.8: v3.7 fast-accept plus stock-geometry/type4 remaining for completed third-party API7 captures, 330m nominal reference; no tag writes"
+    },
+    {
+      "id": "k2-cfs-rfid-fastaccept-v3.7",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-fastaccept-v3_7.bin",
+      "sha256": "291c3c76eeeb81484e43de93e99ce79444338d4ad97117d6fd7cf29b52f5c295",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID v3.7 API7 fast-accept2: v3.6 plus guarded stock read-message retry termination after complete active-slot third-party capture; no direct host RF; no tag writes"
+    },
+    {
+      "id": "k2-cfs-rfid-fastaccept-v3.6",
+      "filename": "cfs0_050_G32-cfs0_000_153-rfid-fastaccept-v3_6.bin",
+      "sha256": "76dcd62b45f8126245373d6c75cf79f35d7139357b4e2e9247fe34e08b748065",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "K2 CFS RFID v3.6 API7 fast-accept: v3.3 stock-capture plus guarded active-slot UID-consistency bypass after complete third-party capture; no direct host RF; no tag writes"
+    },
+    {
       "id": "k2-cfs-rfid-stockcapture-v3.3",
       "filename": "cfs0_050_G32-cfs0_000_153-rfid-stockcapture-v3_3.bin",
       "sha256": "5bab3acff49253a54089e779ea473d2cf587db09ab0d9c07c4d6c2e31b810388",
