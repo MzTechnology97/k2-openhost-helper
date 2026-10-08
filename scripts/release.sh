@@ -19,6 +19,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 RELEASE_MANIFEST="${K2OH_RELEASE_MANIFEST:-https://raw.githubusercontent.com/MzTechnology97/K2-OpenHost/main/releases/stable.json}"
 T113_DIR="${K2OH_T113_DIR:-${HOME}/k2-openhost-t113-bootstrap}"
 HELPER_REPO_DIR="${K2OH_HELPER_REPO_DIR:-$HELPER_DIR}"
+MAINSAIL_SRC_DIR="${MAINSAIL_SRC_DIR:-${HOME}/mainsail-k2openhost-src}"
 MOONRAKER_URL="${MOONRAKER_URL:-http://127.0.0.1:7125}"
 
 declare -A REL=()
@@ -97,16 +98,44 @@ mainsail_installed_tag() {
         "$MAINSAIL_DIR/release_info.json" 2>/dev/null || true
 }
 
+source_build() {
+    # A Mainsail built from source (mainsail.sh without a prebuilt zip, or
+    # by hand) keeps upstream's release_info.json, without "k2oh.": its
+    # commit is the one of the source checkout.
+    local installed="$1"
+    [[ -n "$installed" && "$installed" != *k2oh.* && -d "$MAINSAIL_SRC_DIR/.git" ]]
+}
+
 mainsail_relation() {
-    # same | behind | ahead | missing, from the k2oh.N build number
+    # same | behind | ahead | missing | unknown: from the k2oh.N build
+    # number, or for a source build from the source checkout's commit
     local installed="$1" wanted="$2"
     [[ -n "$installed" ]] || { echo missing; return; }
     [[ "$installed" == "$wanted" ]] && { echo same; return; }
+    if source_build "$installed"; then
+        case "$(git_relation "$MAINSAIL_SRC_DIR" "${REL[mainsail_sha]}")" in
+            same) echo same ;;
+            behind*) echo behind ;;
+            ahead*) echo ahead ;;
+            *) echo unknown ;;
+        esac
+        return
+    fi
+    [[ "$installed" == *k2oh.* ]] || { echo unknown; return; }
     local have="${installed##*k2oh.}" want="${wanted##*k2oh.}"
     if [[ "$have" =~ ^[0-9]+$ && "$want" =~ ^[0-9]+$ ]] && (( have > want )); then
         echo ahead
     else
         echo behind
+    fi
+}
+
+mainsail_label() {
+    local installed="$1"
+    if source_build "$installed"; then
+        echo "source $(short_head "$MAINSAIL_SRC_DIR")"
+    else
+        echo "${installed:--}"
     fi
 }
 
@@ -122,13 +151,17 @@ cmd_status() {
     local rel installed
     rel="$(git_relation "$KLIPPER_DIR" "${REL[kalico_sha]}")"
     row "Kalico" "$(short_head "$KLIPPER_DIR")" "$(describe_relation "$rel") (${REL[kalico_sha]:0:8})"
+    fetch_checkout "$MAINSAIL_SRC_DIR"
     installed="$(mainsail_installed_tag)"
     rel="$(mainsail_relation "$installed" "${REL[mainsail_tag]}")"
+    local label
+    label="$(mainsail_label "$installed")"
     case "$rel" in
-        same) row "Mainsail" "$installed" "on the release" ;;
-        ahead) row "Mainsail" "$installed" "newer than the release (${REL[mainsail_tag]})" ;;
-        behind) row "Mainsail" "$installed" "release: ${REL[mainsail_tag]}" ;;
+        same) row "Mainsail" "$label" "on the release (${REL[mainsail_tag]})" ;;
+        ahead) row "Mainsail" "$label" "newer than the release (${REL[mainsail_tag]})" ;;
+        behind) row "Mainsail" "$label" "release: ${REL[mainsail_tag]}" ;;
         missing) row "Mainsail" "-" "no release_info.json in $MAINSAIL_DIR (release: ${REL[mainsail_tag]})" ;;
+        unknown) row "Mainsail" "$label" "not comparable with the release (${REL[mainsail_tag]})" ;;
     esac
     rel="$(git_relation "$HELPER_REPO_DIR" "${REL[helper_sha]}")"
     row "Installer helper" "$(short_head "$HELPER_REPO_DIR")" "$(describe_relation "$rel") (${REL[helper_version]:-?})"
@@ -187,14 +220,19 @@ apply_kalico() {
 }
 
 apply_mainsail() {
-    local tag="${REL[mainsail_tag]}" installed rel
+    local tag="${REL[mainsail_tag]}" installed rel label default=y
+    fetch_checkout "$MAINSAIL_SRC_DIR"
     installed="$(mainsail_installed_tag)"
     rel="$(mainsail_relation "$installed" "$tag")"
+    label="$(mainsail_label "$installed")"
     case "$rel" in
         same) ok "Mainsail is on the release ($tag)"; return 0 ;;
-        ahead) info "Mainsail $installed is newer than the release ($tag): left as it is"; return 0 ;;
+        ahead) info "Mainsail ($label) is newer than the release ($tag): left as it is"; return 0 ;;
+        unknown)
+            warn "Mainsail ($label) cannot be compared with the release: it may be newer"
+            default=n ;;
     esac
-    confirm "Install Mainsail $tag (now ${installed:-unknown})?" y || { info "Mainsail not changed"; return 0; }
+    confirm "Install Mainsail $tag (now ${label:-unknown})?" "$default" || { info "Mainsail not changed"; return 0; }
     run_mainsail_update "$tag"
 }
 
