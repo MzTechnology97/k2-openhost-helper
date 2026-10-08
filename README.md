@@ -251,6 +251,8 @@ The printer's own T113 board runs the USB gadget bridges to this host. The boots
 
 **3. Trial boot** (menu 26). Slot B boots once. If it does not come up, power cycle the printer and it returns to slot A. On the first boot HelixScreen installs itself, already pointed at this host. Connect the service Micro-USB cable and check Mainsail, then **keep slot B** (menu 27). Menu 28 returns to slot A at any time.
 
+**Time zone:** the T113 ships on China time (Asia/Shanghai). `./helper.sh t113 timezone` gives slot B this host's time zone, so the printer's logs line up with the host's; `boot-b`, `commit` and `update` do it too. Slot A is never changed.
+
 **Updating slot B later** (menu 33, `./helper.sh t113 update`): K2-OpenHost's programs are updated on the running slot B, without the reinstall from slot A, which would flash slot A's own firmware files back onto the boards at boot.
 
 **4. MCU, motor and CFS firmware** (menu 31, `./helper.sh t113 mcu-fw update`):

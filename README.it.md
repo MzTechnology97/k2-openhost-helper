@@ -251,6 +251,8 @@ La scheda T113 della stampante esegue i bridge USB gadget verso questo host. Il 
 
 **3. Avvio di prova** (voce 26). Lo slot B si avvia una volta. Se non parte, spegni e riaccendi la stampante e torna allo slot A. Al primo avvio HelixScreen si installa da solo, già collegato a questo host. Collega il cavo Micro-USB di servizio e controlla Mainsail, poi **tieni lo slot B** (voce 27). La voce 28 torna allo slot A in qualsiasi momento.
 
+**Fuso orario:** il T113 esce impostato sull'ora cinese (Asia/Shanghai). `./helper.sh t113 timezone` dà allo slot B il fuso orario di questo host, così i log della stampante si allineano a quelli dell'host; lo fanno anche `boot-b`, `commit` e `update`. Lo slot A non viene mai modificato.
+
 **Aggiornare lo slot B in seguito** (voce 33, `./helper.sh t113 update`): i programmi di K2-OpenHost si aggiornano sullo slot B in uso, senza reinstallare dallo slot A, che all'avvio riscriverebbe sulle schede i file firmware della sua versione.
 
 **4. Firmware di MCU, motori e CFS** (voce 31, `./helper.sh t113 mcu-fw update`):
