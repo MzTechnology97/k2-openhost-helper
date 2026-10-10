@@ -1,3 +1,5 @@
+> **CFS firmware v3.19 experimental:** menu 40 now recognizes the SHA-pinned v3.19 volatile-RAM bench candidate (`cfs0_050_G32/cfs0_000_153`). The BIN is distributed separately by [k2-cfs-rfid-tools](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/main/firmware/v3.19-volatile-ram), must be placed locally in `firmware/custom-cfs/`, and is **not** for ordinary CFS motion. See [custom firmware safety and rollback instructions](firmware/custom-cfs/README.md). The previous v3.13 is retained as a rollback candidate.
+
 # K2-OpenHost Installer Helper
 
 **English** · [Italiano](README.it.md)
