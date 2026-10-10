@@ -2,6 +2,14 @@
   "schema": 1,
   "candidates": [
     {
+      "id": "k2-cfs-runtime-config-v3.20-timing-7-8-experimental",
+      "filename": "cfs0_050_G32-cfs0_000_153-runtime-config-v3_20-TIMING-ID7-ID8-EXPERIMENTAL.bin",
+      "sha256": "ecc1718700792843a6fd4a93ec0806f1591c1dd8f187621d98fdb793ba343dac",
+      "hardware": "cfs0_050_G32",
+      "application": "cfs0_000_153",
+      "description": "EXPERIMENTAL v3.20 timing-hook bench: IDs 7 and 8 are the only enabled stock timing hooks, API2 feature=0xB7. Real hardware GET+SET/RESET passed. Physical load/unload timing NOT YET validated."
+    },
+    {
       "id": "k2-cfs-runtime-config-v3.19-volatile-bench",
       "filename": "cfs0_050_G32-cfs0_000_153-runtime-config-v3_19-VOLATILE-RAM-BENCH.bin",
       "sha256": "6af3ac668f36a81f9d403f10bacfa2124737574307049d502bd2ba44ca959f74",

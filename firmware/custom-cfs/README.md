@@ -1,3 +1,9 @@
+## Experimental v3.20 first timing hooks (2026-10-10)
+
+Menu 40 includes a new **experimental** `cfs0_050_G32/cfs0_000_153` v3.20 candidate, SHA-256 `ecc1718700792843a6fd4a93ec0806f1591c1dd8f187621d98fdb793ba343dac` (178096 bytes). Download/copy the matching BIN from [`k2-cfs-rfid-tools/firmware/v3.20-timing-hooks`](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/feature/cfs-v320-timing-hooks/firmware/v3.20-timing-hooks) into `firmware/custom-cfs/`. The helper still checks hardware identity and SHA, and **never flashes without explicit user consent**.
+
+Only timing IDs **7 and 8** are wired into stock CFS timing routines. All 28 default reads and temporary SET/GET/RESET on those two IDs passed on a real CFS; **motion effects during real load/unload are not yet tested**. The Kalico companion uses marker `0xB7` and refuses auto-apply/bulk APPLY. Keep the v3.13 rollback and do not treat this version as production-ready.
+
 # Custom CFS firmware
 
 I use this directory for the installer manifest of my experimental CFS firmware. Firmware binaries remain outside this repository and are published in the dedicated [k2-cfs-rfid-tools firmware tree](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/main/firmware).
