@@ -2,7 +2,24 @@
 
 I use this directory for the installer manifest of my experimental CFS firmware. Firmware binaries remain outside this repository and are published in the dedicated [k2-cfs-rfid-tools firmware tree](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/main/firmware).
 
-## Current candidate: v3.3 / API7 stock capture
+## Experimental v3.19 volatile-RAM bench (2026-10-10)
+
+The first candidate in the installer manifest is **v3.19**, an experimental K2 Pro CFS firmware designed for controlled runtime-configuration tests. It is **not** a production firmware and must not be used for load/unload or RFID motion testing. The original v3.13 remains the second candidate for rollback. Its initial read-only API2/28 tests and one manual advanced SET/GET/RESET (ID18) have passed on real hardware. The other 20 advanced writes, power-cycle retention and any actual motion effects are not validated.
+
+The helper intentionally does **not** version or download firmware binaries: to install the exact v3.19 file, get it from [k2-cfs-rfid-tools/firmware/v3.19-volatile-ram](https://github.com/MzTechnology97/k2-cfs-rfid-tools/tree/main/firmware/v3.19-volatile-ram), then copy it to this directory.
+
+```bash
+cp /path/to/k2-cfs-rfid-tools/firmware/v3.19-volatile-ram/cfs0_050_G32-cfs0_000_153-runtime-config-v3_19-VOLATILE-RAM-BENCH.bin ./firmware/custom-cfs/
+sha256sum firmware/custom-cfs/cfs0_050_G32-cfs0_000_153-runtime-config-v3_19-VOLATILE-RAM-BENCH.bin
+# expected: 6af3ac668f36a81f9d403f10bacfa2124737574307049d502bd2ba44ca959f74
+./helper.sh experimental-cfs
+```
+
+Interactive menu 40 still requires the explicit `FLASH EXPERIMENTAL CFS` confirmation. The helper checks the exact SHA and boot/application identity, and delegates writes to Creality `mcu_util_485`; the menu never flashes automatically. **First boot: run only the read-only `verify_v319_readonly.py` from k2-cfs-rfid-tools**, with the companion updated Kalico extra.
+
+For v3.19, Kalico intentionally disables automatic runtime SET and bulk APPLY; manual advanced writes are meant exclusively for supervised bench testing. Avoid firmware from other CFS generations or different boot tokens.
+
+## Historical candidate: v3.3 / API7 stock capture
 
 The current manifest-approved image is:
 
